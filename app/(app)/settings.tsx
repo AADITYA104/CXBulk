@@ -1,8 +1,10 @@
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useAuth } from "../../context/auth";
 
 export default function SettingsScreen() {
+  const { signOut, user } = useAuth();
+
   return (
     <View style={{flex: 1, backgroundColor: "#F5F5F7"}}>
       <ScrollView contentContainerStyle={{paddingTop: 64, paddingBottom: 120, paddingHorizontal: 24}}>
@@ -11,11 +13,11 @@ export default function SettingsScreen() {
 
         {/* Profile Card */}
         <View style={{alignItems: "center", marginBottom: 32}}>
-          <View style={{width: 88, height: 88, borderRadius: 44, backgroundColor: "#007AFF", alignItems: "center", justifyContent: "center", marginBottom: 16, shadowColor: "#007AFF", shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8}}>
-            <Text style={{fontSize: 32, fontWeight: "bold", color: "#FFFFFF"}}>WD</Text>
+          <View style={{width: 88, height: 88, borderRadius: 44, backgroundColor: user?.role === "superadmin" ? "#5E5CE6" : "#007AFF", alignItems: "center", justifyContent: "center", marginBottom: 16, shadowColor: user?.role === "superadmin" ? "#5E5CE6" : "#007AFF", shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8}}>
+            <Text style={{fontSize: 32, fontWeight: "bold", color: "#FFFFFF"}}>{user?.role === "superadmin" ? "SA" : "WD"}</Text>
           </View>
-          <Text style={{fontSize: 22, fontWeight: "bold", color: "#1C1C1E"}}>Wholesale Distributor</Text>
-          <Text style={{fontSize: 15, color: "#8E8E93", marginTop: 4}}>+91 90000 00000</Text>
+          <Text style={{fontSize: 22, fontWeight: "bold", color: "#1C1C1E"}}>{user?.role === "superadmin" ? "Super Admin" : "Wholesale Distributor"}</Text>
+          <Text style={{fontSize: 15, color: "#8E8E93", marginTop: 4}}>{user?.email || "admin@cxbulk.com"}</Text>
           <View style={{flexDirection: "row", alignItems: "center", backgroundColor: "rgba(52,199,89,0.1)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 12}}>
             <Ionicons name="shield-checkmark" size={14} color="#34C759" style={{marginRight: 4}} />
             <Text style={{fontSize: 13, fontWeight: "bold", color: "#34C759"}}>Pro Verified</Text>
@@ -85,7 +87,7 @@ export default function SettingsScreen() {
 
         <Pressable 
           style={{backgroundColor: "#fff", height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2}}
-          onPress={() => router.replace("/auth")}
+          onPress={() => signOut()}
         >
           <Text style={{color: "#FF3B30", fontSize: 16, fontWeight: "bold"}}>Sign Out</Text>
         </Pressable>

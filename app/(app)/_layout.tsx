@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../context/auth";
 
 const { Navigator } = createMaterialTopTabNavigator();
 const MaterialTopTabs = withLayoutContext<any, typeof Navigator, any, any>(
@@ -12,7 +13,14 @@ const MaterialTopTabs = withLayoutContext<any, typeof Navigator, any, any>(
 
 function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   
+  // Filter out 'gateway' if user is not superadmin
+  const visibleRoutes = state.routes.filter(route => {
+    if (route.name === "gateway" && user?.role !== "superadmin") return false;
+    return true;
+  });
+
   return (
     <View style={{ position: "absolute", bottom: 24, left: 24, right: 24, zIndex: 100 }}>
       {/* Container with shadow */}
@@ -37,9 +45,9 @@ function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps)
             justifyContent: "space-between",
           }}
         >
-          {state.routes.map((route, index) => {
+          {visibleRoutes.map((route, index) => {
             const { options } = descriptors[route.key];
-            const isFocused = state.index === index;
+            const isFocused = state.index === state.routes.findIndex(r => r.key === route.key);
 
             const onPress = () => {
               const event = navigation.emit({
@@ -87,6 +95,8 @@ function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps)
 }
 
 export default function AppLayout() {
+  const { user } = useAuth();
+  
   return (
     <MaterialTopTabs
       tabBarPosition="bottom"
@@ -98,7 +108,9 @@ export default function AppLayout() {
       <MaterialTopTabs.Screen name="dashboard" />
       <MaterialTopTabs.Screen name="campaign" />
       <MaterialTopTabs.Screen name="contacts" />
-      <MaterialTopTabs.Screen name="gateway" />
+      {user?.role === "superadmin" && (
+        <MaterialTopTabs.Screen name="gateway" />
+      )}
       <MaterialTopTabs.Screen name="settings" />
     </MaterialTopTabs>
   );
