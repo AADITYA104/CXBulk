@@ -1,8 +1,8 @@
-import { View, Text, ScrollView, Pressable, Dimensions, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import * as DocumentPicker from "expo-document-picker";
 
-const { width } = Dimensions.get("window");
 
 const chartData = [
   { label: "Mon", value: 380 },
@@ -74,6 +74,30 @@ const chart = StyleSheet.create({
 });
 
 export default function DashboardScreen() {
+  const handleImportFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const { name, size, uri } = file;
+        const fileSize = size ? (size / 1024).toFixed(2) : "unknown";
+        Alert.alert(
+          "File Selected",
+          `File: ${name}\nSize: ${fileSize} KB\n\nFile will be imported from: ${uri}`,
+          [{ text: "OK" }]
+        );
+        // You can add logic here to upload or process the file
+        // For now, it just shows the file info
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to pick document: " + (error as any).message);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -145,7 +169,7 @@ export default function DashboardScreen() {
 
           <BarChart />
 
-          <View style={styles.chartFooter}>
+          <View style={chart.chartFooter}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: "#007AFF" }]} />
               <Text style={styles.legendText}>SMS</Text>
@@ -170,7 +194,7 @@ export default function DashboardScreen() {
             <Ionicons name="person-add" size={21} color="#1C1C1E" />
             <Text style={styles.actionBtnText}>Add User</Text>
           </Pressable>
-          <Pressable style={[styles.actionBtn, { backgroundColor: "#FFFFFF" }]}>
+          <Pressable style={[styles.actionBtn, { backgroundColor: "#FFFFFF" }]} onPress={handleImportFile}>
             <Ionicons name="document-text" size={21} color="#1C1C1E" />
             <Text style={styles.actionBtnText}>Import</Text>
           </Pressable>

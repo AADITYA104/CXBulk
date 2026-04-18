@@ -2,14 +2,28 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import "@/global.css";
 import { AuthProvider, useAuth } from "../context/auth";
 import { useEffect } from "react";
+import { useFonts, Inter_900Black } from "@expo-google-fonts/inter";
+import * as SplashScreenNative from "expo-splash-screen";
+
+SplashScreenNative.preventAutoHideAsync();
 
 function InitialLayout() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
+  const [fontsLoaded] = useFonts({
+    Inter_900Black,
+  });
+
   useEffect(() => {
-    if (isLoading) return;
+    if (fontsLoaded) {
+      SplashScreenNative.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (isLoading || !fontsLoaded) return;
 
     const currentSegment = segments[0] as string | undefined;
     const inAuthGroup = currentSegment === "auth" || currentSegment === "index" || !currentSegment;
@@ -22,7 +36,7 @@ function InitialLayout() {
       // Note: We allow currentSegment === "index" so the splash screen can gracefully finish its animation
       router.replace("/(app)/dashboard");
     }
-  }, [user, isLoading, segments]);
+  }, [user, isLoading, segments, router, fontsLoaded]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

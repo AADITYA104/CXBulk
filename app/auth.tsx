@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { router } from "expo-router";
-import { View, Text, TextInput, Pressable, Platform, KeyboardAvoidingView, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TextInput, Pressable, Platform, KeyboardAvoidingView, ActivityIndicator, Alert, StatusBar } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "react-native";
 import Animated, { FadeInUp, FadeInDown, SlideInUp } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { useAuth } from "../context/auth";
@@ -35,44 +33,35 @@ export default function AuthScreen() {
   };
 
   return (
-    <View style={{flex: 1, backgroundColor: "#E5E5EA"}}>
-      <StatusBar barStyle="dark-content" backgroundColor="#E5E5EA" />
+    <View style={{flex: 1, backgroundColor: "#000"}}>
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
       
-      {/* Decorative Blob */}
-      <View style={{position: "absolute", top: -100, left: -50, width: 400, height: 400, backgroundColor: "rgba(0,122,255,0.15)", borderRadius: 200}} />
-      <View style={{position: "absolute", bottom: -100, right: -50, width: 300, height: 300, backgroundColor: "rgba(52,199,89,0.15)", borderRadius: 150}} />
+      {/* Decorative Blobs - Dark Mode Version */}
+      <View style={[{position: "absolute", width: 250, height: 250, borderRadius: 125, opacity: 0.5, blur: 100}, { top: -100, left: -50, backgroundColor: "rgba(0,122,255,0.1)" }]} />
+      <View style={[{position: "absolute", width: 250, height: 250, borderRadius: 125, opacity: 0.5, blur: 100}, { bottom: -100, right: -50, width: 300, height: 300, backgroundColor: "rgba(255,45,85,0.1)" }]} />
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"} 
-        style={{flex: 1, justifyContent: "center", paddingHorizontal: 32}}
+        style={{flex: 1, paddingHorizontal: 24, justifyContent: "center"}}
       >
-        <Animated.View entering={FadeInUp.duration(1000).springify()} style={{alignItems: "center", marginBottom: 32}}>
-          <View style={{
-            width: 80, height: 80, borderRadius: 24, backgroundColor: "#fff",
-            alignItems: "center", justifyContent: "center", 
-            shadowColor: "#000", shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.1, shadowRadius: 24, elevation: 5,
-            marginBottom: 24
-          }}>
-            <Ionicons name="chatbubbles" size={36} color="#007AFF" />
+        <Animated.View entering={FadeInUp.duration(1000).springify()} style={{alignItems: "center", marginBottom: 40}}>
+          <View style={{width: 80, height: 80, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 20}}>
+            <Ionicons name="chatbubbles" size={36} color="#FFFFFF" />
           </View>
-          <Text style={{fontSize: 28, fontWeight: "900", color: "#1C1C1E", textAlign: "center"}}>{isRegistering ? "Create Account" : "Ready to Broadcast"}</Text>
-          <Text style={{fontSize: 15, color: "#8E8E93", marginTop: 8, textAlign: "center"}}>{isRegistering ? "Sign up to start broadcasting messages" : "Sign in to manage your SMS gateway"}</Text>
+          <Text style={{fontSize: 28, fontWeight: "900", color: "#FFFFFF", letterSpacing: -0.5}}>{isRegistering ? "Create Account" : "CXBulk Login"}</Text>
+          <Text style={{fontSize: 14, color: "#8E8E93", marginTop: 8, textAlign: "center"}}>{isRegistering ? "Sign up to start broadcasting messages" : "Sign in to manage your SMS gateway"}</Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(800).springify()}>
-          <View style={{
-            backgroundColor: "rgba(255,255,255,0.8)", borderRadius: 28, overflow: "hidden",
-            borderColor: "rgba(255,255,255,1)", borderWidth: 1,
-            shadowColor: "#000", shadowOffset: {width: 0, height: 12}, shadowOpacity: 0.05, shadowRadius: 24, elevation: 4
-          }}>
-            <BlurView intensity={60} tint="light" style={{padding: 24}}>
+          <View style={{borderRadius: 32, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)"}}>
+            <BlurView intensity={20} tint="dark" style={{padding: 24}}>
               
-              <View style={{flexDirection: "row", alignItems: "center", backgroundColor: "#F2F2F7", borderRadius: 16, height: 56, paddingHorizontal: 16, marginBottom: 16}}>
+              <View style={{flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 16, paddingHorizontal: 16, marginBottom: 16, height: 56}}>
                 <Ionicons name="mail" size={20} color="#8E8E93" style={{marginRight: 12}} />
                 <TextInput
-                  style={{flex: 1, fontSize: 16, color: "#1C1C1E", fontWeight: "500"}}
+                  style={{flex: 1, color: "#FFFFFF", fontSize: 16}}
                   placeholder="Email Address"
-                  placeholderTextColor="#C7C7CC"
+                  placeholderTextColor="#48484A"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={email}
@@ -80,12 +69,12 @@ export default function AuthScreen() {
                 />
               </View>
 
-              <View style={{flexDirection: "row", alignItems: "center", backgroundColor: "#F2F2F7", borderRadius: 16, height: 56, paddingHorizontal: 16, marginBottom: 24}}>
+              <View style={{flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 16, paddingHorizontal: 16, marginBottom: 24, height: 56}}>
                 <Ionicons name="lock-closed" size={20} color="#8E8E93" style={{marginRight: 12}} />
                 <TextInput
-                  style={{flex: 1, fontSize: 16, color: "#1C1C1E", fontWeight: "500"}}
+                  style={{flex: 1, color: "#FFFFFF", fontSize: 16}}
                   placeholder="Password"
-                  placeholderTextColor="#C7C7CC"
+                  placeholderTextColor="#48484A"
                   secureTextEntry
                   value={password}
                   onChangeText={setPassword}
@@ -93,22 +82,29 @@ export default function AuthScreen() {
               </View>
 
               <Pressable
-                style={{
-                  backgroundColor: isLoggingIn ? "#66aaff" : "#007AFF", 
-                  borderRadius: 16, height: 56,
-                  alignItems: "center", justifyContent: "center", flexDirection: "row",
-                  shadowColor: "#007AFF", shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
-                  marginBottom: 16
-                }}
+                style={({ pressed }) => [{
+                  height: 56,
+                  borderRadius: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginBottom: 16,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 4
+                }, { backgroundColor: isLoggingIn ? "#303030" : (pressed ? "#222" : "#FFFFFF") }]}
                 onPress={handleAuth}
                 disabled={isLoggingIn}
               >
                 {isLoggingIn ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#000" />
                 ) : (
                   <>
-                    <Text style={{color: "#fff", fontWeight: "bold", fontSize: 16, marginRight: 8}}>{isRegistering ? "Sign Up" : "Continue"}</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                    <Text style={[{fontSize: 16, fontWeight: "700"}, { color: "#000" }]}>{isRegistering ? "Sign Up" : "Continue"}</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#000" />
                   </>
                 )}
               </Pressable>

@@ -3,8 +3,8 @@ import { createMaterialTopTabNavigator, MaterialTopTabBarProps } from "@react-na
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, View } from "react-native";
 import { BlurView } from "expo-blur";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/auth";
+
 
 const { Navigator } = createMaterialTopTabNavigator();
 const MaterialTopTabs = withLayoutContext<any, typeof Navigator, any, any>(
@@ -12,8 +12,8 @@ const MaterialTopTabs = withLayoutContext<any, typeof Navigator, any, any>(
 );
 
 function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps) {
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
+
   
   // Filter out 'gateway' if user is not superadmin
   const visibleRoutes = state.routes.filter(route => {
@@ -46,8 +46,8 @@ function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps)
           }}
         >
           {visibleRoutes.map((route, index) => {
-            const { options } = descriptors[route.key];
             const isFocused = state.index === state.routes.findIndex(r => r.key === route.key);
+
 
             const onPress = () => {
               const event = navigation.emit({

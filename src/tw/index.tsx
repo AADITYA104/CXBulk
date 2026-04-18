@@ -82,7 +82,7 @@ export const AnimatedScrollView = (
     contentContainerClassName?: string;
   }
 ) => {
-  return useCssElement(Animated.ScrollView, props, {
+  return useCssElement(Animated.ScrollView as any, props as any, {
     className: "style",
     contentClassName: "contentContainerStyle",
     contentContainerClassName: "contentContainerStyle",
@@ -92,7 +92,7 @@ export const AnimatedScrollView = (
 function XXTouchableHighlight(
   props: React.ComponentProps<typeof RNTouchableHighlight>
 ) {
-  const { underlayColor, ...style } = StyleSheet.flatten(props.style) || {};
+  const { underlayColor, ...style } = (StyleSheet.flatten(props.style) as any) || {};
   return (
     <RNTouchableHighlight
       underlayColor={underlayColor}
