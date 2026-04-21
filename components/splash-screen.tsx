@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
-import { View, Text, Dimensions, StyleSheet, Platform } from "react-native";
+import { View, Dimensions, StyleSheet, Platform } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withRepeat,
   Easing,
   runOnJS,
   useAnimatedProps,
@@ -12,16 +13,12 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, {
   Path,
+  Text as SvgText,
   Defs,
   ClipPath,
-  Text as SvgText,
-  G,
-  Use,
 } from "react-native-svg";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedSvgText = Animated.createAnimatedComponent(SvgText);
-const AnimatedG = Animated.createAnimatedComponent(G);
 
 interface SplashScreenProps {
   onComplete?: () => void;
@@ -30,135 +27,96 @@ interface SplashScreenProps {
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const { width: windowWidth, height: windowHeight } = Dimensions.get("window");
   
-  // Animation state
-  const time = useSharedValue(0);
   const progress = useSharedValue(0);
+  const drift = useSharedValue(0);
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
-  const displayProgress = useSharedValue(0);
 
-  // SVG dimensions
   const SVG_WIDTH = 1340;
   const SVG_HEIGHT = 300;
-  const TEXT_X = 670;
-  const TEXT_Y = 150;
   
-  // Bounding box approximation for "CXBulk" at fontSize 220
-  // In the HTML it's roughly center-aligned.
-  const BBOX = {
-    x: 200, 
-    y: 50,
-    width: 940,
-    height: 200,
-  };
-  const Y_BASE = BBOX.y + BBOX.height + 30;
-
-  // Keyframes from HTML (extended to 8s)
-  const keyframes = [
-    { t: 0, v: 0 },
-    { t: 1.0, v: 0.13 },
-    { t: 2.0, v: 0.29 },
-    { t: 3.5, v: 0.46 },
-    { t: 5.0, v: 0.62 },
-    { t: 6.5, v: 0.79 },
-    { t: 7.5, v: 0.96 },
-    { t: 8.0, v: 1.0 },
-  ];
-
-  const ease = (u: number) => {
+  const createWavePath = (p: number, driftVal: number, phaseOffset: number, amplitude: number) => {
     "worklet";
-    return u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
-  };
-
-  const getProgressVal = (t: number) => {
-    "worklet";
-    if (t <= 0) return 0;
-    if (t >= 8.0) return 1;
-    for (let i = 0; i < keyframes.length - 1; i++) {
-      const k0 = keyframes[i];
-      const k1 = keyframes[i + 1];
-      if (t >= k0.t && t <= k1.t) {
-        const u = (t - k0.t) / (k1.t - k0.t);
-        return k0.v + (k1.v - k0.v) * ease(u);
-      }
-    }
-    return 1;
-  };
-
-  const animatedProps = useAnimatedProps(() => {
-    const p = getProgressVal(time.value);
-    displayProgress.value = Math.round(p * 100);
+    const startY = 320;
+    const endY = -50;
+    const fillY = startY - p * (startY - endY);
     
-    const fillY = BBOX.y + BBOX.height * (1 - p);
-    const drift = time.value * 30; // Even slower drift for 8s
-    const amp = 12; // Even lower amplitude for calm 8s waves
-    const waveLen = 500;
-    const xStart = BBOX.x - 120;
-    const xEnd = BBOX.x + BBOX.width + 120;
-    const step = 6;
+    const waveLen = 400;
+    const xStart = -50;
+    const xEnd = 1400;
+    const step = 20;
     
-    let d = `M ${xStart} ${Y_BASE} L ${xStart} ${fillY}`;
+    let d = `M ${xStart} ${startY} L ${xStart} ${fillY}`;
     for (let x = xStart; x <= xEnd; x += step) {
-      const y = fillY + Math.sin((x + drift) * Math.PI * 2 / waveLen) * amp;
+      const y = fillY + Math.sin((x + driftVal + phaseOffset) * Math.PI * 2 / waveLen) * amplitude;
       d += ` L ${x} ${y}`;
     }
-    d += ` L ${xEnd} ${Y_BASE} Z`;
-    
-    return { d };
+    d += ` L ${xEnd} ${startY} Z`;
+    return d;
+  };
+
+  const animatedProps1 = useAnimatedProps(() => {
+    // Increased amplitude for bigger wave (from 15 -> 35)
+    return { d: createWavePath(progress.value, drift.value, 0, Math.max(5, 35 * (1 - progress.value))) };
   });
 
-  const animatedLogoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  const animatedCounterProps = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-    };
+  const animatedProps2 = useAnimatedProps(() => {
+    // Increased amplitude for bigger wave (from 25 -> 55)
+    return { d: createWavePath(progress.value, drift.value * 1.2, 50, Math.max(5, 55 * (1 - progress.value))) };
   });
 
   useEffect(() => {
-    // Start the time animation (now 8 seconds)
-    time.value = withTiming(8.0, {
-      duration: 8000,
-      easing: Easing.bezier(0.42, 0, 0.58, 1),
+    // Infinite wave translation
+    drift.value = withRepeat(withTiming(1500, { duration: 6000, easing: Easing.linear }), -1, false);
+
+    // Fill progress - made slower (5000ms)
+    progress.value = withTiming(1, {
+      duration: 5500,
+      easing: Easing.out(Easing.cubic),
     }, (finished) => {
       if (finished) {
-        // Deliberate exit sequence
-        scale.value = withTiming(1.25, {
-          duration: 1000,
-          easing: Easing.out(Easing.cubic),
+        // Zoom out effect: scale rapidly expands (or shrinks) to reveal the app
+        // A "zoom out" cinematic effect usually means the screen shrinks or the logo blows up
+        // Let's make it scale massively (zoom through) while fading out
+        scale.value = withTiming(25, {
+          duration: 700,
+          easing: Easing.in(Easing.cubic),
         });
         
-        opacity.value = withDelay(600, withTiming(0, {
-          duration: 800,
-          easing: Easing.inOut(Easing.cubic),
+        opacity.value = withDelay(150, withTiming(0, {
+          duration: 500,
+          easing: Easing.out(Easing.quad),
         }, (done) => {
-          if (done) {
-            runOnJS(onComplete!)();
+          if (done && onComplete) {
+            runOnJS(onComplete)();
           }
         }));
       }
     });
 
     return () => {
-      cancelAnimation(time);
+      cancelAnimation(progress);
+      cancelAnimation(drift);
       cancelAnimation(scale);
       cancelAnimation(opacity);
     };
   }, []);
 
-  // Use a state for the counter text since we need to display it as a string
-  // but Reanimated 3+ can update text via useAnimatedProps if we use a special Text component
-  // For simplicity and compatibility, we use a small hack or just a Reanimated value display
+  const animatedLogoStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const animatedCounterStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   const [percent, setPercent] = React.useState(0);
   
-  // We'll update the percent state periodically from a worklet if needed, 
-  // but let's try to keep it mostly in the UI thread for "high quality".
   useEffect(() => {
     const interval = setInterval(() => {
-      setPercent(Math.floor(displayProgress.value));
+      const displayVal = Math.min(100, Math.max(0, Math.round(progress.value * 100)));
+      setPercent(displayVal);
     }, 50);
     return () => clearInterval(interval);
   }, []);
@@ -169,60 +127,35 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         width: 1920, 
         height: 1080,
         transform: [
-          { scale: Math.min(windowWidth / 1920, windowHeight / 1080) }
+          { scale: Math.min((windowWidth || 375) / 1920, (windowHeight || 812) / 1080) }
         ]
       }]}>
         <Animated.View style={[styles.logo, animatedLogoStyle]}>
           <View style={styles.logoInner}>
-            <Svg 
-              width="100%" 
-              height="100%" 
-              viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-              style={styles.svg}
-            >
-              <Defs>
-                <ClipPath id="textClip">
-                  <SvgText
-                    x={TEXT_X}
-                    y={TEXT_Y}
-                    textAnchor="middle"
-                    alignmentBaseline="central"
-                    fontSize="220"
-                    fontWeight="900"
-                    letterSpacing="-1.5"
-                    fontFamily="Inter_900Black"
-                  >
-                    CXBulk
-                  </SvgText>
-                </ClipPath>
-              </Defs>
-              
-              {/* Background text */}
-              <SvgText
-                x={TEXT_X}
-                y={TEXT_Y}
-                textAnchor="middle"
-                alignmentBaseline="central"
-                fontSize="220"
-                fontWeight="900"
-                letterSpacing="-1.5"
-                fill="#262626"
-                fontFamily="Inter_900Black"
-              >
-                CXBulk
-              </SvgText>
-              
-              {/* Filled text via ClipPath */}
-              <G clipPath="url(#textClip)">
-                <AnimatedPath
-                    animatedProps={animatedProps}
-                    fill="#FFFFFF"
-                />
-              </G>
+            <Svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} style={styles.svg}>
+               <Defs>
+                 {/* Text acts as the mask for the animated waves */}
+                 <ClipPath id="textMask">
+                   <SvgText x="50%" y="50%" textAnchor="middle" alignmentBaseline="middle" fontFamily={Platform.OS === "ios" ? "System" : "sans-serif"} fontSize="240" fontWeight="900">
+                     CXBULK
+                   </SvgText>
+                 </ClipPath>
+               </Defs>
+               
+               {/* Background text (dimmed) */}
+               <SvgText x="50%" y="50%" textAnchor="middle" alignmentBaseline="middle" fontFamily={Platform.OS === "ios" ? "System" : "sans-serif"} fontSize="240" fontWeight="900" fill="#2A2A2A">
+                 CXBULK
+               </SvgText>
+
+               {/* Back Wave (gray) clipped inside the text */}
+               <AnimatedPath animatedProps={animatedProps2} fill="#666666" clipPath="url(#textMask)" />
+
+               {/* Front Wave (white) clipped inside the text */}
+               <AnimatedPath animatedProps={animatedProps1} fill="#FFFFFF" clipPath="url(#textMask)" />
             </Svg>
-            
-            <Animated.Text style={[styles.counter, animatedCounterProps]}>
-              loading... {percent} %
+
+            <Animated.Text style={[styles.counter, animatedCounterStyle]}>
+              LOADING.. {percent}%
             </Animated.Text>
           </View>
         </Animated.View>
@@ -264,13 +197,14 @@ const styles = StyleSheet.create({
   },
   counter: {
     position: "absolute",
-    bottom: 0, 
-    right: 200, 
+    bottom: -60, 
+    right: 220, 
     fontFamily: Platform.OS === "ios" ? "System" : "sans-serif",
-    fontSize: 12,
-    fontWeight: "400",
+    fontSize: 22,
+    fontWeight: "bold",
     color: "#FFFFFF",
-    opacity: 0.8,
+    opacity: 0.9,
+    letterSpacing: 4,
   },
 });
 

@@ -37,8 +37,8 @@ export default function AuthScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       
       {/* Decorative Blobs - Dark Mode Version */}
-      <View style={[{position: "absolute", width: 250, height: 250, borderRadius: 125, opacity: 0.5, blur: 100}, { top: -100, left: -50, backgroundColor: "rgba(0,122,255,0.1)" }]} />
-      <View style={[{position: "absolute", width: 250, height: 250, borderRadius: 125, opacity: 0.5, blur: 100}, { bottom: -100, right: -50, width: 300, height: 300, backgroundColor: "rgba(255,45,85,0.1)" }]} />
+      <View style={[{position: "absolute", width: 250, height: 250, borderRadius: 125, opacity: 0.5}, { top: -100, left: -50, backgroundColor: "rgba(0,122,255,0.1)" }]} />
+      <View style={[{position: "absolute", width: 250, height: 250, borderRadius: 125, opacity: 0.5}, { bottom: -100, right: -50, width: 300, height: 300, backgroundColor: "rgba(255,45,85,0.1)" }]} />
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"} 

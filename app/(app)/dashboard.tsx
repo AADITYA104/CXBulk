@@ -71,6 +71,7 @@ const chart = StyleSheet.create({
   barNormal: { backgroundColor: "#007AFF", opacity: 0.75 },
   barPeak: { backgroundColor: "#FF6B8A" },
   xLabel: { fontSize: 9, color: "#8E8E93", fontWeight: "600", marginTop: 6 },
+  chartFooter: { flexDirection: "row", alignItems: "center", marginTop: 12, gap: 12 },
 });
 
 export default function DashboardScreen() {

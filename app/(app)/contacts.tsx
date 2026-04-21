@@ -113,7 +113,7 @@ export default function ContactsScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: "#F2F2F7" }}>
                 <Text style={{ color: "#000", fontSize: 16, width: 96 }}>Name</Text>
                 <TextInput
-                  style={{ flex: 1, color: "#000", fontSize: 16 }}
+                  style={{ flex: 1, color: "#000", fontSize: 16, paddingVertical: 0 }}
                   placeholder="Enter farmer's name"
                   placeholderTextColor="#C7C7CC"
                   value={newName}
@@ -123,7 +123,7 @@ export default function ContactsScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", padding: 16 }}>
                 <Text style={{ color: "#000", fontSize: 16, width: 96 }}>Mobile</Text>
                 <TextInput
-                  style={{ flex: 1, color: "#000", fontSize: 16 }}
+                  style={{ flex: 1, color: "#000", fontSize: 16, paddingVertical: 0 }}
                   placeholder="+91"
                   placeholderTextColor="#C7C7CC"
                   keyboardType="phone-pad"
