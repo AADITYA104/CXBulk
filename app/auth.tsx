@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, Platform, KeyboardAvoidingView, ActivityIndicator, Alert, StatusBar } from "react-native";
+import { View, Text, TextInput, Pressable, Platform, KeyboardAvoidingView, ActivityIndicator, Alert, StatusBar, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInUp, FadeInDown, SlideInUp } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
@@ -45,8 +45,8 @@ export default function AuthScreen() {
         style={{flex: 1, paddingHorizontal: 24, justifyContent: "center"}}
       >
         <Animated.View entering={FadeInUp.duration(1000).springify()} style={{alignItems: "center", marginBottom: 40}}>
-          <View style={{width: 80, height: 80, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 20}}>
-            <Ionicons name="chatbubbles" size={36} color="#FFFFFF" />
+          <View style={{width: 80, height: 80, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 20, overflow: "hidden"}}>
+            <Image source={require("../assets/images/app-logo.png")} style={{width: "100%", height: "100%", resizeMode: "cover"}} />
           </View>
           <Text style={{fontSize: 28, fontWeight: "900", color: "#FFFFFF", letterSpacing: -0.5}}>{isRegistering ? "Create Account" : "CXBulk Login"}</Text>
           <Text style={{fontSize: 14, color: "#8E8E93", marginTop: 8, textAlign: "center"}}>{isRegistering ? "Sign up to start broadcasting messages" : "Sign in to manage your SMS gateway"}</Text>
