@@ -1,5 +1,5 @@
 import { Stack, useRouter, useSegments } from "expo-router";
-import "@/global.css";
+import "../global.css";
 import { AuthProvider, useAuth } from "../context/auth";
 import { useEffect } from "react";
 import { useFonts, Inter_900Black } from "@expo-google-fonts/inter";
@@ -37,6 +37,8 @@ function InitialLayout() {
       router.replace("/(app)/dashboard");
     }
   }, [user, isLoading, segments, router, fontsLoaded]);
+
+  if (!fontsLoaded) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
