@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput } from "../../src/tw";
+import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Modal, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar, Modal, KeyboardAvoidingView, Platform } from "react-native";
 
 export default function ContactsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
@@ -16,67 +15,65 @@ export default function ContactsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#F5F5F7]">
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F2F2F7" />
 
       {/* Header */}
-      <View className="bg-white px-6 pt-16 pb-4 z-10 border-b border-gray-100">
-        <Text className="text-3xl font-extrabold text-black tracking-tight mb-4">Contact</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Contacts</Text>
 
-        <View className="bg-gray-100 flex-row items-center p-2 rounded-xl">
-          <Ionicons name="search" size={20} color="#8E8E93" className="ml-2 mr-2" />
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
           <TextInput
-            className="flex-1 py-1 text-black font-medium"
+            style={styles.searchInput}
             placeholder="Search"
             placeholderTextColor="#8E8E93"
           />
         </View>
       </View>
 
-      <ScrollView className="flex-1" contentContainerClassName="px-6 pb-32 pt-5">
-        <Text className="text-gray-500 font-medium text-sm mb-3 uppercase tracking-wider">All Contacts</Text>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.sectionTitle}>ALL CONTACTS</Text>
 
-        <View className="bg-white rounded-[24px] overflow-hidden shadow-sm">
+        <View style={styles.listCard}>
           {/* Contact 1 */}
-          <Pressable className="p-4 border-b border-gray-100 flex-row justify-between items-center active:bg-gray-50">
-            <View className="flex-row items-center flex-1">
-              <View className="w-12 h-12 rounded-full bg-blue-100 items-center justify-center mr-3">
-                <Text className="text-[#007AFF] font-bold text-lg">RK</Text>
+          <Pressable style={styles.listItem}>
+            <View style={styles.listItemContent}>
+              <View style={[styles.avatar, { backgroundColor: "#E5F2FF" }]}>
+                <Text style={[styles.avatarText, { color: "#007AFF" }]}>RK</Text>
               </View>
               <View>
-                <Text className="font-bold text-black text-base">Ramesh Kumar</Text>
-                <Text className="text-sm text-gray-500 mt-0.5">+91 98765 43210</Text>
+                <Text style={styles.contactName}>Ramesh Kumar</Text>
+                <Text style={styles.contactPhone}>+91 98765 43210</Text>
               </View>
             </View>
-            <Ionicons name="logo-whatsapp" size={20} color="#34C759" />
+            <Ionicons name="logo-whatsapp" size={24} color="#34C759" />
           </Pressable>
 
           {/* Contact 2 */}
-          <Pressable className="p-4 flex-row justify-between items-center active:bg-gray-50">
-            <View className="flex-row items-center flex-1">
-              <View className="w-12 h-12 rounded-full bg-gray-100 items-center justify-center mr-3">
-                <Text className="text-gray-500 font-bold text-lg">SD</Text>
+          <Pressable style={[styles.listItem, styles.listItemNoBorder]}>
+            <View style={styles.listItemContent}>
+              <View style={[styles.avatar, { backgroundColor: "#E5E5EA" }]}>
+                <Text style={[styles.avatarText, { color: "#8E8E93" }]}>SD</Text>
               </View>
               <View>
-                <Text className="font-bold text-black text-base">Suresh Das</Text>
-                <Text className="text-sm text-gray-500 mt-0.5">+91 91234 56789</Text>
+                <Text style={styles.contactName}>Suresh Das</Text>
+                <Text style={styles.contactPhone}>+91 91234 56789</Text>
               </View>
             </View>
-            <Ionicons name="chatbubble" size={20} color="#007AFF" />
+            <View style={styles.messageIconWrap}>
+              <Ionicons name="chatbubble" size={14} color="#FFF" />
+            </View>
           </Pressable>
         </View>
       </ScrollView>
 
       {/* iOS Style Floating Action Button */}
-      <View style={{ position: "absolute", bottom: 112, right: 24, zIndex: 20 }}>
+      <View style={styles.fabContainer}>
         <Pressable
           style={({ pressed }) => [
-            {
-              backgroundColor: "#007AFF", width: 56, height: 56, borderRadius: 28,
-              alignItems: "center", justifyContent: "center",
-              shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8
-            },
-            pressed && { transform: [{ scale: 0.95 }] }
+            styles.fab,
+            pressed && styles.fabPressed
           ]}
           onPress={() => setModalVisible(true)}
         >
@@ -93,37 +90,37 @@ export default function ContactsScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" }}
+          style={styles.modalOverlay}
         >
-          <View style={{ backgroundColor: "#F2F2F7", borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingTop: 24, paddingBottom: 48, paddingHorizontal: 24, height: "85%" }}>
+          <View style={styles.modalContent}>
 
             {/* Header */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <View style={styles.modalHeader}>
               <Pressable onPress={() => setModalVisible(false)}>
-                <Text style={{ color: "#007AFF", fontSize: 18 }}>Cancel</Text>
+                <Text style={styles.modalCancel}>Cancel</Text>
               </Pressable>
-              <Text style={{ color: "#000", fontWeight: "bold", fontSize: 18 }}>New Farmer</Text>
+              <Text style={styles.modalTitle}>New Contact</Text>
               <Pressable onPress={handleAddFarmer}>
-                <Text style={{ color: "#007AFF", fontSize: 18, fontWeight: "bold" }}>Save</Text>
+                <Text style={styles.modalSave}>Save</Text>
               </Pressable>
             </View>
 
             {/* Inputs Form */}
-            <View style={{ backgroundColor: "#fff", borderRadius: 20, overflow: "hidden", marginBottom: 24 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: "#F2F2F7" }}>
-                <Text style={{ color: "#000", fontSize: 16, width: 96 }}>Name</Text>
+            <View style={styles.inputGroup}>
+              <View style={styles.inputRow}>
+                <Text style={styles.inputLabel}>Name</Text>
                 <TextInput
-                  style={{ flex: 1, color: "#000", fontSize: 16, paddingVertical: 0 }}
-                  placeholder="Enter farmer's name"
+                  style={styles.inputField}
+                  placeholder="Enter contact name"
                   placeholderTextColor="#C7C7CC"
                   value={newName}
                   onChangeText={setNewName}
                 />
               </View>
-              <View style={{ flexDirection: "row", alignItems: "center", padding: 16 }}>
-                <Text style={{ color: "#000", fontSize: 16, width: 96 }}>Mobile</Text>
+              <View style={[styles.inputRow, styles.inputRowNoBorder]}>
+                <Text style={styles.inputLabel}>Mobile</Text>
                 <TextInput
-                  style={{ flex: 1, color: "#000", fontSize: 16, paddingVertical: 0 }}
+                  style={styles.inputField}
                   placeholder="+91"
                   placeholderTextColor="#C7C7CC"
                   keyboardType="phone-pad"
@@ -133,7 +130,7 @@ export default function ContactsScreen() {
               </View>
             </View>
 
-            <Text style={{ color: "#8E8E93", fontSize: 14, textAlign: "center", paddingHorizontal: 16 }}>
+            <Text style={styles.modalDisclaimer}>
               Saving this contact will automatically verify their WhatsApp status for future broadcasts.
             </Text>
 
@@ -144,3 +141,99 @@ export default function ContactsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F2F2F7" },
+  header: { 
+    backgroundColor: "#F2F2F7", 
+    paddingHorizontal: 24, 
+    paddingTop: Platform.OS === 'ios' ? 60 : 40, 
+    paddingBottom: 16 
+  },
+  headerTitle: { 
+    fontSize: 34, 
+    fontWeight: "900", 
+    color: "#1C1C1E", 
+    letterSpacing: -0.5, 
+    marginBottom: 16 
+  },
+  searchBar: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: "#E5E5EA", 
+    borderRadius: 12, 
+    paddingHorizontal: 8, 
+    height: 44 
+  },
+  searchIcon: { marginRight: 8, marginLeft: 4 },
+  searchInput: { flex: 1, fontSize: 17, color: "#1C1C1E" },
+  
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 120, paddingTop: 16 },
+  
+  sectionTitle: { fontSize: 13, fontWeight: "600", color: "#8E8E93", letterSpacing: 0.5, marginBottom: 8, marginLeft: 8 },
+  
+  listCard: { 
+    backgroundColor: "#FFFFFF", 
+    borderRadius: 16, 
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  listItem: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between", 
+    padding: 16, 
+    borderBottomWidth: StyleSheet.hairlineWidth, 
+    borderBottomColor: "#E5E5EA" 
+  },
+  listItemNoBorder: { borderBottomWidth: 0 },
+  listItemContent: { flexDirection: "row", alignItems: "center", flex: 1 },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", marginRight: 12 },
+  avatarText: { fontSize: 16, fontWeight: "700" },
+  contactName: { fontSize: 17, fontWeight: "600", color: "#1C1C1E", marginBottom: 2 },
+  contactPhone: { fontSize: 14, color: "#8E8E93" },
+  messageIconWrap: { width: 28, height: 28, borderRadius: 14, backgroundColor: "#007AFF", alignItems: "center", justifyContent: "center" },
+  
+  fabContainer: { position: "absolute", bottom: 40, right: 24, zIndex: 20 },
+  fab: { 
+    backgroundColor: "#007AFF", 
+    width: 56, 
+    height: 56, 
+    borderRadius: 28, 
+    alignItems: "center", 
+    justifyContent: "center",
+    shadowColor: "#007AFF", 
+    shadowOffset: { width: 0, height: 8 }, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 16, 
+    elevation: 8 
+  },
+  fabPressed: { transform: [{ scale: 0.95 }] },
+
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  modalContent: { 
+    backgroundColor: "#F2F2F7", 
+    borderTopLeftRadius: 32, 
+    borderTopRightRadius: 32, 
+    paddingTop: 24, 
+    paddingBottom: Platform.OS === 'ios' ? 48 : 24, 
+    paddingHorizontal: 24 
+  },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  modalCancel: { color: "#007AFF", fontSize: 17 },
+  modalTitle: { color: "#1C1C1E", fontWeight: "700", fontSize: 17 },
+  modalSave: { color: "#007AFF", fontSize: 17, fontWeight: "700" },
+  
+  inputGroup: { backgroundColor: "#FFFFFF", borderRadius: 16, overflow: "hidden", marginBottom: 24 },
+  inputRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E5E5EA" },
+  inputRowNoBorder: { borderBottomWidth: 0 },
+  inputLabel: { color: "#1C1C1E", fontSize: 17, width: 96 },
+  inputField: { flex: 1, color: "#1C1C1E", fontSize: 17, paddingVertical: 0 },
+  
+  modalDisclaimer: { color: "#8E8E93", fontSize: 13, textAlign: "center", paddingHorizontal: 16, lineHeight: 18 }
+});
