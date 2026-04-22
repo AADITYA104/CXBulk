@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import { File as ExpoFile } from "expo-file-system";
 import Papa from "papaparse";
 import { useContacts } from "../../context/contacts";
 
@@ -83,90 +83,129 @@ export default function DashboardScreen() {
 
   const handleImportFile = async () => {
     try {
+      // 1. Pick the document
       const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
+        // Support common CSV MIME types including those used by Android/Excel
+        type: [
+          "text/csv", 
+          "text/comma-separated-values", 
+          "application/vnd.ms-excel", 
+          "text/plain",
+          "application/octet-stream"
+        ],
         copyToCacheDirectory: true,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        const { name, uri } = file;
+      if (result.canceled) return;
 
-        // Validate file extension
-        const ext = name.split(".").pop()?.toLowerCase();
-        if (ext !== "csv") {
-          Alert.alert("Unsupported Format", "Please select a CSV file (.csv). Excel files (.xlsx/.xls) are not yet supported.");
-          return;
-        }
-
-        setIsImporting(true);
-
-        // Read file content
-        const fileContent = await FileSystem.readAsStringAsync(uri);
-
-        // Parse CSV using PapaParse
-        const parsed = Papa.parse(fileContent, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: (h: string) => h.trim().toLowerCase(),
-        });
-
-        if (parsed.errors.length > 0) {
-          const errorMessages = parsed.errors.slice(0, 3).map((e: any) => e.message).join("\n");
-          Alert.alert("CSV Parse Error", `Found ${parsed.errors.length} error(s):\n${errorMessages}`);
-          setIsImporting(false);
-          return;
-        }
-
-        const rows = parsed.data as Record<string, string>[];
-        if (rows.length === 0) {
-          Alert.alert("Empty File", "The CSV file contains no data rows.");
-          setIsImporting(false);
-          return;
-        }
-
-        // Map CSV columns to contact fields
-        // Support common column name variations
-        const mappedRows = rows.map((row) => ({
-          name: row.name || row.full_name || row.fullname || row.contact_name || "",
-          mobile: row.mobile || row.phone || row.number || row.phone_number || row.mobile_number || "",
-          crop: row.crop || row.product || row.category || "",
-        })).filter(r => r.name && r.mobile);
-
-        if (mappedRows.length === 0) {
-          Alert.alert(
-            "No Valid Contacts",
-            "Could not find valid contacts in the CSV. Make sure your CSV has 'Name' and 'Mobile' columns.\n\nSupported column names:\n• Name: name, full_name, contact_name\n• Mobile: mobile, phone, number, phone_number\n• Crop: crop, product, category"
-          );
-          setIsImporting(false);
-          return;
-        }
-
-        // Preview & confirm
-        Alert.alert(
-          "Import Contacts",
-          `Found ${mappedRows.length} valid contacts in "${name}".\n\nDo you want to import them?`,
-          [
-            { text: "Cancel", style: "cancel", onPress: () => setIsImporting(false) },
-            {
-              text: "Import",
-              style: "default",
-              onPress: async () => {
-                try {
-                  const count = await importContacts(mappedRows);
-                  Alert.alert("Import Complete", `Successfully imported ${count} contacts.`);
-                } catch (e: any) {
-                  Alert.alert("Import Failed", e.message || "An error occurred during import.");
-                } finally {
-                  setIsImporting(false);
-                }
-              },
-            },
-          ]
-        );
+      const pickerAsset = result.assets?.[0];
+      if (!pickerAsset) {
+        Alert.alert("Error", "No file was selected.");
+        return;
       }
-    } catch (error) {
-      Alert.alert("Error", "Failed to pick document: " + (error as any).message);
+
+      const { name, uri } = asset;
+      
+      // 2. Initial validation
+      const isCsv = name.toLowerCase().endsWith(".csv") || 
+                    pickerAsset.mimeType?.includes("csv") || 
+                    pickerAsset.mimeType === "text/comma-separated-values";
+
+      if (!isCsv) {
+        Alert.alert(
+          "Unsupported Format", 
+          "Please select a CSV file (.csv). Excel files (.xlsx/.xls) are not yet supported."
+        );
+        return;
+      }
+
+      setIsImporting(true);
+
+      // 3. Verify file and read content using new SDK 54 API
+      let fileContent: string;
+      try {
+        const expoFile = new ExpoFile(uri);
+        
+        if (!expoFile.exists) {
+          throw new Error("File not found at picked location.");
+        }
+
+        // Read as text (new API uses .text() which returns a promise)
+        fileContent = await expoFile.text();
+
+        // Strip UTF-8 BOM if present
+        if (fileContent.startsWith("\uFEFF")) {
+          fileContent = fileContent.substring(1);
+        }
+      } catch (readError: any) {
+        console.error("File reading failed:", readError);
+        Alert.alert("Read Error", "Could not read the file: " + readError.message);
+        setIsImporting(false);
+        return;
+      }
+
+      // 4. Parse CSV
+      const parsed = Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (h: string) => h.trim().toLowerCase(),
+      });
+
+      if (parsed.errors.length > 0) {
+        const errorMessages = parsed.errors.slice(0, 3).map((e: any) => e.message).join("\n");
+        Alert.alert("CSV Parse Error", `Found ${parsed.errors.length} error(s):\n${errorMessages}`);
+        setIsImporting(false);
+        return;
+      }
+
+      const rows = parsed.data as Record<string, string>[];
+      if (rows.length === 0) {
+        Alert.alert("Empty File", "The CSV file contains no data rows.");
+        setIsImporting(false);
+        return;
+      }
+
+      // 5. Map and filter
+      const mappedRows = rows.map((row) => ({
+        name: (row.name || row.full_name || row.fullname || row.contact_name || "").trim(),
+        mobile: (row.mobile || row.phone || row.number || row.phone_number || row.mobile_number || "").trim().replace(/\s+/g, ""),
+        crop: (row.crop || row.product || row.category || "").trim(),
+      })).filter(r => r.name && r.mobile);
+
+      if (mappedRows.length === 0) {
+        Alert.alert(
+          "No Valid Contacts",
+          "Could not find valid contacts in the CSV. Make sure your CSV has 'Name' and 'Mobile' columns.\n\nSupported column names:\n• Name: name, full_name, contact_name\n• Mobile: mobile, phone, number, phone_number\n• Crop: crop, product, category"
+        );
+        setIsImporting(false);
+        return;
+      }
+
+      // 6. Preview & Confirm
+      Alert.alert(
+        "Import Contacts",
+        `Found ${mappedRows.length} valid contacts in "${name}".\n\nDo you want to import them?`,
+        [
+          { text: "Cancel", style: "cancel", onPress: () => setIsImporting(false) },
+          {
+            text: "Import",
+            style: "default",
+            onPress: async () => {
+              try {
+                const count = await importContacts(mappedRows);
+                Alert.alert("Import Complete", `Successfully imported ${count} contacts.`);
+              } catch (e: any) {
+                Alert.alert("Import Failed", e.message || "An error occurred during import.");
+              } finally {
+                setIsImporting(false);
+              }
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error("General error in handleImportFile:", error);
+      Alert.alert("Error", "An unexpected error occurred: " + error.message);
       setIsImporting(false);
     }
   };
