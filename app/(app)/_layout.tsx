@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { useAuth } from "../../context/auth";
+import { PermissionGuard } from "../../components/permission-guard";
 
 
 const { Navigator } = createMaterialTopTabNavigator();
@@ -98,20 +99,22 @@ export default function AppLayout() {
   const { user } = useAuth();
   
   return (
-    <MaterialTopTabs
-      tabBarPosition="bottom"
-      tabBar={(props: MaterialTopTabBarProps) => <GlassTabBar {...props} />}
-      screenOptions={{
-        swipeEnabled: true,
-      }}
-    >
-      <MaterialTopTabs.Screen name="dashboard" />
-      <MaterialTopTabs.Screen name="campaign" />
-      <MaterialTopTabs.Screen name="contacts" />
-      {user?.role === "superadmin" && (
-        <MaterialTopTabs.Screen name="gateway" />
-      )}
-      <MaterialTopTabs.Screen name="settings" />
-    </MaterialTopTabs>
+    <PermissionGuard>
+      <MaterialTopTabs
+        tabBarPosition="bottom"
+        tabBar={(props: MaterialTopTabBarProps) => <GlassTabBar {...props} />}
+        screenOptions={{
+          swipeEnabled: true,
+        }}
+      >
+        <MaterialTopTabs.Screen name="dashboard" />
+        <MaterialTopTabs.Screen name="campaign" />
+        <MaterialTopTabs.Screen name="contacts" />
+        {user?.role === "superadmin" && (
+          <MaterialTopTabs.Screen name="gateway" />
+        )}
+        <MaterialTopTabs.Screen name="settings" />
+      </MaterialTopTabs>
+    </PermissionGuard>
   );
 }

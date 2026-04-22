@@ -28,5 +28,5 @@ export default function InitialScreen() {
   }
 
   // Fallback - should not show due to navigation
-  return <View style={{ flex: 1, backgroundColor: "#000" }} />;
+  return <View style={{ flex: 1, backgroundColor: "#F2F2F7" }} />;
 }

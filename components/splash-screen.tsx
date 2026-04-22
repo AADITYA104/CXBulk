@@ -56,12 +56,10 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   };
 
   const animatedProps1 = useAnimatedProps(() => {
-    // Increased amplitude for bigger wave (from 15 -> 35)
     return { d: createWavePath(progress.value, drift.value, 0, Math.max(5, 35 * (1 - progress.value))) };
   });
 
   const animatedProps2 = useAnimatedProps(() => {
-    // Increased amplitude for bigger wave (from 25 -> 55)
     return { d: createWavePath(progress.value, drift.value * 1.2, 50, Math.max(5, 55 * (1 - progress.value))) };
   });
 
@@ -69,15 +67,13 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     // Infinite wave translation
     drift.value = withRepeat(withTiming(1500, { duration: 6000, easing: Easing.linear }), -1, false);
 
-    // Fill progress - made slower (5000ms)
+    // Fill progress
     progress.value = withTiming(1, {
       duration: 5500,
       easing: Easing.out(Easing.cubic),
     }, (finished) => {
       if (finished) {
-        // Zoom out effect: scale rapidly expands (or shrinks) to reveal the app
-        // A "zoom out" cinematic effect usually means the screen shrinks or the logo blows up
-        // Let's make it scale massively (zoom through) while fading out
+        // Zoom-through cinematic exit
         scale.value = withTiming(25, {
           duration: 700,
           easing: Easing.in(Easing.cubic),
@@ -142,16 +138,16 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                  </ClipPath>
                </Defs>
                
-               {/* Background text (dimmed) */}
-               <SvgText x="50%" y="50%" textAnchor="middle" alignmentBaseline="middle" fontFamily={Platform.OS === "ios" ? "System" : "sans-serif"} fontSize="240" fontWeight="900" fill="#2A2A2A">
+               {/* Background text — light muted tone on the light background */}
+               <SvgText x="50%" y="50%" textAnchor="middle" alignmentBaseline="middle" fontFamily={Platform.OS === "ios" ? "System" : "sans-serif"} fontSize="240" fontWeight="900" fill="#D1D1D6">
                  CXBULK
                </SvgText>
 
-               {/* Back Wave (gray) clipped inside the text */}
-               <AnimatedPath animatedProps={animatedProps2} fill="#666666" clipPath="url(#textMask)" />
+               {/* Back Wave (light blue) clipped inside the text */}
+               <AnimatedPath animatedProps={animatedProps2} fill="#5AC8FA" clipPath="url(#textMask)" />
 
-               {/* Front Wave (white) clipped inside the text */}
-               <AnimatedPath animatedProps={animatedProps1} fill="#FFFFFF" clipPath="url(#textMask)" />
+               {/* Front Wave (primary blue) clipped inside the text */}
+               <AnimatedPath animatedProps={animatedProps1} fill="#007AFF" clipPath="url(#textMask)" />
             </Svg>
 
             <Animated.Text style={[styles.counter, animatedCounterStyle]}>
@@ -167,7 +163,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#F2F2F7",
     overflow: "hidden",
   },
   stage: {
@@ -176,7 +172,7 @@ const styles = StyleSheet.create({
     left: "50%",
     marginTop: -540,
     marginLeft: -960,
-    backgroundColor: "#000000",
+    backgroundColor: "#F2F2F7",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -202,9 +198,8 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === "ios" ? "System" : "sans-serif",
     fontSize: 22,
     fontWeight: "bold",
-    color: "#FFFFFF",
+    color: "#007AFF",
     opacity: 0.9,
     letterSpacing: 4,
   },
 });
-

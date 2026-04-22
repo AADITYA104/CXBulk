@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import "../global.css";
 import { AuthProvider, useAuth } from "../context/auth";
+import { ContactsProvider } from "../context/contacts";
 import { useEffect } from "react";
 import { useFonts, Inter_900Black } from "@expo-google-fonts/inter";
 import * as SplashScreenNative from "expo-splash-screen";
@@ -52,7 +53,9 @@ function InitialLayout() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <InitialLayout />
+      <ContactsProvider>
+        <InitialLayout />
+      </ContactsProvider>
     </AuthProvider>
   );
 }

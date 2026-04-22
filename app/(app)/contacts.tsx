@@ -1,17 +1,63 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Modal, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Modal, KeyboardAvoidingView, Platform, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useContacts } from "../../context/contacts";
 
 export default function ContactsScreen() {
+  const { contacts, isLoading, addContact } = useContacts();
   const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const handleAddFarmer = () => {
-    // Add logic here to save the farmer
-    setModalVisible(false);
-    setNewName("");
-    setNewNumber("");
+  const handleAddContact = async () => {
+    if (!newName.trim() || !newNumber.trim()) {
+      Alert.alert("Missing Info", "Please enter both name and mobile number.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await addContact(newName, newNumber);
+      setModalVisible(false);
+      setNewName("");
+      setNewNumber("");
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Failed to save contact.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Filter contacts by search query
+  const filteredContacts = contacts.filter((c) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.mobile.includes(q);
+  });
+
+  // Generate initials from name
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  // Generate a deterministic color from name
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      { bg: "#E5F2FF", text: "#007AFF" },
+      { bg: "#E8FAF0", text: "#34C759" },
+      { bg: "#FFF3E0", text: "#FF9500" },
+      { bg: "#F3E8FF", text: "#AF52DE" },
+      { bg: "#E5E5EA", text: "#8E8E93" },
+      { bg: "#FEECED", text: "#FF3B30" },
+      { bg: "#E0F7FA", text: "#5AC8FA" },
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
   };
 
   return (
@@ -28,47 +74,70 @@ export default function ContactsScreen() {
             style={styles.searchInput}
             placeholder="Search"
             placeholderTextColor="#8E8E93"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={18} color="#C7C7CC" />
+            </Pressable>
+          )}
         </View>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionTitle}>ALL CONTACTS</Text>
+        <Text style={styles.sectionTitle}>ALL CONTACTS ({filteredContacts.length})</Text>
 
-        <View style={styles.listCard}>
-          {/* Contact 1 */}
-          <Pressable style={styles.listItem}>
-            <View style={styles.listItemContent}>
-              <View style={[styles.avatar, { backgroundColor: "#E5F2FF" }]}>
-                <Text style={[styles.avatarText, { color: "#007AFF" }]}>RK</Text>
-              </View>
-              <View>
-                <Text style={styles.contactName}>Ramesh Kumar</Text>
-                <Text style={styles.contactPhone}>+91 98765 43210</Text>
-              </View>
-            </View>
-            <Ionicons name="logo-whatsapp" size={24} color="#34C759" />
-          </Pressable>
-
-          {/* Contact 2 */}
-          <Pressable style={[styles.listItem, styles.listItemNoBorder]}>
-            <View style={styles.listItemContent}>
-              <View style={[styles.avatar, { backgroundColor: "#E5E5EA" }]}>
-                <Text style={[styles.avatarText, { color: "#8E8E93" }]}>SD</Text>
-              </View>
-              <View>
-                <Text style={styles.contactName}>Suresh Das</Text>
-                <Text style={styles.contactPhone}>+91 91234 56789</Text>
-              </View>
-            </View>
-            <View style={styles.messageIconWrap}>
-              <Ionicons name="chatbubble" size={14} color="#FFF" />
-            </View>
-          </Pressable>
-        </View>
+        {isLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.emptyText}>Loading contacts...</Text>
+          </View>
+        ) : filteredContacts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="people-outline" size={48} color="#C7C7CC" />
+            <Text style={styles.emptyText}>
+              {searchQuery ? "No contacts match your search" : "No contacts yet"}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery ? "Try a different search term" : "Tap + to add your first contact"}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.listCard}>
+            {filteredContacts.map((contact, idx) => {
+              const color = getAvatarColor(contact.name);
+              const isLast = idx === filteredContacts.length - 1;
+              return (
+                <Pressable
+                  key={contact.id}
+                  style={[styles.listItem, !isLast && styles.listItemBorder]}
+                >
+                  <View style={styles.listItemContent}>
+                    <View style={[styles.avatar, { backgroundColor: color.bg }]}>
+                      <Text style={[styles.avatarText, { color: color.text }]}>
+                        {getInitials(contact.name)}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.contactName}>{contact.name}</Text>
+                      <Text style={styles.contactPhone}>{contact.mobile}</Text>
+                      {contact.crop ? (
+                        <Text style={styles.contactCrop}>{contact.crop}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  <View style={styles.messageIconWrap}>
+                    <Ionicons name="chatbubble" size={14} color="#FFF" />
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
-      {/* iOS Style Floating Action Button */}
+      {/* Floating Action Button */}
       <View style={styles.fabContainer}>
         <Pressable
           style={({ pressed }) => [
@@ -81,7 +150,7 @@ export default function ContactsScreen() {
         </Pressable>
       </View>
 
-      {/* Add Farmer Modal (iOS Sheet Style) */}
+      {/* Add Contact Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -96,12 +165,16 @@ export default function ContactsScreen() {
 
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Pressable onPress={() => setModalVisible(false)}>
+              <Pressable onPress={() => { setModalVisible(false); setNewName(""); setNewNumber(""); }}>
                 <Text style={styles.modalCancel}>Cancel</Text>
               </Pressable>
               <Text style={styles.modalTitle}>New Contact</Text>
-              <Pressable onPress={handleAddFarmer}>
-                <Text style={styles.modalSave}>Save</Text>
+              <Pressable onPress={handleAddContact} disabled={isSaving}>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#007AFF" />
+                ) : (
+                  <Text style={styles.modalSave}>Save</Text>
+                )}
               </Pressable>
             </View>
 
@@ -121,7 +194,7 @@ export default function ContactsScreen() {
                 <Text style={styles.inputLabel}>Mobile</Text>
                 <TextInput
                   style={styles.inputField}
-                  placeholder="+91"
+                  placeholder="+91XXXXXXXXXX"
                   placeholderTextColor="#C7C7CC"
                   keyboardType="phone-pad"
                   value={newNumber}
@@ -131,7 +204,7 @@ export default function ContactsScreen() {
             </View>
 
             <Text style={styles.modalDisclaimer}>
-              Saving this contact will automatically verify their WhatsApp status for future broadcasts.
+              Saving this contact will store it in your account for future broadcasts.
             </Text>
 
           </View>
@@ -173,6 +246,10 @@ const styles = StyleSheet.create({
   
   sectionTitle: { fontSize: 13, fontWeight: "600", color: "#8E8E93", letterSpacing: 0.5, marginBottom: 8, marginLeft: 8 },
   
+  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 12 },
+  emptyText: { fontSize: 17, fontWeight: "600", color: "#8E8E93" },
+  emptySubtext: { fontSize: 14, color: "#C7C7CC" },
+
   listCard: { 
     backgroundColor: "#FFFFFF", 
     borderRadius: 16, 
@@ -188,18 +265,20 @@ const styles = StyleSheet.create({
     alignItems: "center", 
     justifyContent: "space-between", 
     padding: 16, 
+  },
+  listItemBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth, 
     borderBottomColor: "#E5E5EA" 
   },
-  listItemNoBorder: { borderBottomWidth: 0 },
   listItemContent: { flexDirection: "row", alignItems: "center", flex: 1 },
   avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", marginRight: 12 },
   avatarText: { fontSize: 16, fontWeight: "700" },
   contactName: { fontSize: 17, fontWeight: "600", color: "#1C1C1E", marginBottom: 2 },
   contactPhone: { fontSize: 14, color: "#8E8E93" },
+  contactCrop: { fontSize: 12, color: "#007AFF", fontWeight: "500", marginTop: 2 },
   messageIconWrap: { width: 28, height: 28, borderRadius: 14, backgroundColor: "#007AFF", alignItems: "center", justifyContent: "center" },
   
-  fabContainer: { position: "absolute", bottom: 40, right: 24, zIndex: 20 },
+  fabContainer: { position: "absolute", bottom: 100, right: 24, zIndex: 20 },
   fab: { 
     backgroundColor: "#007AFF", 
     width: 56, 

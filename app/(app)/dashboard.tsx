@@ -1,8 +1,11 @@
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from "react-native";
+import { useState } from "react";
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
-
+import * as FileSystem from "expo-file-system";
+import Papa from "papaparse";
+import { useContacts } from "../../context/contacts";
 
 const chartData = [
   { label: "Mon", value: 380 },
@@ -75,27 +78,96 @@ const chart = StyleSheet.create({
 });
 
 export default function DashboardScreen() {
+  const { contacts, importContacts } = useContacts();
+  const [isImporting, setIsImporting] = useState(false);
+
   const handleImportFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+        type: "*/*",
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
-        const { name, size, uri } = file;
-        const fileSize = size ? (size / 1024).toFixed(2) : "unknown";
+        const { name, uri } = file;
+
+        // Validate file extension
+        const ext = name.split(".").pop()?.toLowerCase();
+        if (ext !== "csv") {
+          Alert.alert("Unsupported Format", "Please select a CSV file (.csv). Excel files (.xlsx/.xls) are not yet supported.");
+          return;
+        }
+
+        setIsImporting(true);
+
+        // Read file content
+        const fileContent = await FileSystem.readAsStringAsync(uri);
+
+        // Parse CSV using PapaParse
+        const parsed = Papa.parse(fileContent, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (h: string) => h.trim().toLowerCase(),
+        });
+
+        if (parsed.errors.length > 0) {
+          const errorMessages = parsed.errors.slice(0, 3).map((e: any) => e.message).join("\n");
+          Alert.alert("CSV Parse Error", `Found ${parsed.errors.length} error(s):\n${errorMessages}`);
+          setIsImporting(false);
+          return;
+        }
+
+        const rows = parsed.data as Record<string, string>[];
+        if (rows.length === 0) {
+          Alert.alert("Empty File", "The CSV file contains no data rows.");
+          setIsImporting(false);
+          return;
+        }
+
+        // Map CSV columns to contact fields
+        // Support common column name variations
+        const mappedRows = rows.map((row) => ({
+          name: row.name || row.full_name || row.fullname || row.contact_name || "",
+          mobile: row.mobile || row.phone || row.number || row.phone_number || row.mobile_number || "",
+          crop: row.crop || row.product || row.category || "",
+        })).filter(r => r.name && r.mobile);
+
+        if (mappedRows.length === 0) {
+          Alert.alert(
+            "No Valid Contacts",
+            "Could not find valid contacts in the CSV. Make sure your CSV has 'Name' and 'Mobile' columns.\n\nSupported column names:\n• Name: name, full_name, contact_name\n• Mobile: mobile, phone, number, phone_number\n• Crop: crop, product, category"
+          );
+          setIsImporting(false);
+          return;
+        }
+
+        // Preview & confirm
         Alert.alert(
-          "File Selected",
-          `File: ${name}\nSize: ${fileSize} KB\n\nFile will be imported from: ${uri}`,
-          [{ text: "OK" }]
+          "Import Contacts",
+          `Found ${mappedRows.length} valid contacts in "${name}".\n\nDo you want to import them?`,
+          [
+            { text: "Cancel", style: "cancel", onPress: () => setIsImporting(false) },
+            {
+              text: "Import",
+              style: "default",
+              onPress: async () => {
+                try {
+                  const count = await importContacts(mappedRows);
+                  Alert.alert("Import Complete", `Successfully imported ${count} contacts.`);
+                } catch (e: any) {
+                  Alert.alert("Import Failed", e.message || "An error occurred during import.");
+                } finally {
+                  setIsImporting(false);
+                }
+              },
+            },
+          ]
         );
-        // You can add logic here to upload or process the file
-        // For now, it just shows the file info
       }
     } catch (error) {
       Alert.alert("Error", "Failed to pick document: " + (error as any).message);
+      setIsImporting(false);
     }
   };
 
@@ -135,11 +207,11 @@ export default function DashboardScreen() {
             <View style={[styles.cardIconWrap, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
               <Ionicons name="people" size={18} color="#FFFFFF" />
             </View>
-            <Text style={[styles.cardStat, { color: "#FFFFFF" }]}>890</Text>
-            <Text style={[styles.cardLabel, { color: "#8E8E93" }]}>Farmers</Text>
+            <Text style={[styles.cardStat, { color: "#FFFFFF" }]}>{contacts.length}</Text>
+            <Text style={[styles.cardLabel, { color: "#8E8E93" }]}>Contacts</Text>
             <View style={[styles.cardBadge, { backgroundColor: "rgba(52,199,89,0.2)" }]}>
               <Ionicons name="trending-up" size={10} color="#30D158" />
-              <Text style={[styles.cardBadgeText, { color: "#30D158" }]}>+5%</Text>
+              <Text style={[styles.cardBadgeText, { color: "#30D158" }]}>Live</Text>
             </View>
           </View>
 
@@ -195,9 +267,17 @@ export default function DashboardScreen() {
             <Ionicons name="person-add" size={21} color="#1C1C1E" />
             <Text style={styles.actionBtnText}>Add User</Text>
           </Pressable>
-          <Pressable style={[styles.actionBtn, { backgroundColor: "#FFFFFF" }]} onPress={handleImportFile}>
-            <Ionicons name="document-text" size={21} color="#1C1C1E" />
-            <Text style={styles.actionBtnText}>Import</Text>
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: "#FFFFFF" }, isImporting && { opacity: 0.6 }]}
+            onPress={handleImportFile}
+            disabled={isImporting}
+          >
+            {isImporting ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Ionicons name="document-text" size={21} color="#1C1C1E" />
+            )}
+            <Text style={styles.actionBtnText}>{isImporting ? "Importing..." : "Import"}</Text>
           </Pressable>
         </View>
 
