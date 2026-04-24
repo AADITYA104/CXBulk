@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Modal, KeyboardAvoidingView, Platform, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useContacts } from "../../context/contacts";
+import { SkeletonCard } from "../../components/skeleton";
 
 export default function ContactsScreen() {
   const { contacts, isLoading, addContact } = useContacts();
@@ -89,9 +90,8 @@ export default function ContactsScreen() {
         <Text style={styles.sectionTitle}>ALL CONTACTS ({filteredContacts.length})</Text>
 
         {isLoading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.emptyText}>Loading contacts...</Text>
+          <View style={styles.listCard}>
+            <SkeletonCard rows={6} />
           </View>
         ) : filteredContacts.length === 0 ? (
           <View style={styles.emptyState}>

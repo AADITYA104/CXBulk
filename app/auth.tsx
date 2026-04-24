@@ -26,7 +26,26 @@ export default function AuthScreen() {
         await signIn(email, password);
       }
     } catch (e: any) {
-      Alert.alert(isRegistering ? "Registration Failed" : "Login Failed", e.message || "An unknown error occurred.");
+      console.error("Auth error:", e);
+      let errorMessage = "An unknown error occurred.";
+      
+      if (e.code === "auth/user-not-found" || e.code === "auth/wrong-password" || e.code === "auth/invalid-credential") {
+        errorMessage = "Invalid email or password. Please check your credentials.";
+      } else if (e.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already registered. Try signing in instead.";
+      } else if (e.code === "auth/weak-password") {
+        errorMessage = "Password should be at least 6 characters.";
+      } else if (e.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address.";
+      } else if (e.code === "auth/too-many-requests") {
+        errorMessage = "Too many failed attempts. Please try again later.";
+      } else if (e.code === "auth/network-request-failed") {
+        errorMessage = "Network error. Please check your internet connection.";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      Alert.alert(isRegistering ? "Registration Failed" : "Login Failed", errorMessage);
     } finally {
       setIsLoggingIn(false);
     }

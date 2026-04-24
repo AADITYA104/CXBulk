@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import * as MediaLibrary from 'expo-media-library';
-import * as SMS from 'expo-sms';
-import Constants from 'expo-constants';
+import * as DocumentPicker from 'expo-document-picker';
 
 export function PermissionGuard({ children }: { children: React.ReactNode }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -15,45 +13,21 @@ export function PermissionGuard({ children }: { children: React.ReactNode }) {
 
   const checkPermissions = async () => {
     try {
-      // expo-media-library can fail in Expo Go if manifest doesn't match
-      const { status: mediaStatus } = await MediaLibrary.getPermissionsAsync();
-      const smsAvailable = await SMS.isAvailableAsync();
-
-      if (mediaStatus !== 'granted') {
-        setIsVisible(true);
-      }
+      setIsVisible(false);
     } catch (error) {
-      console.log("Permission check error (expected in some Expo Go environments):", error);
-      // If it fails, we show the guard anyway so the user can try to request
-      setIsVisible(true);
+      console.log("Permission check:", error);
+      setIsVisible(false);
     }
   };
 
   const requestAll = async () => {
     try {
-      // Request Media Library
-      const { status: mStatus } = await MediaLibrary.requestPermissionsAsync();
-      
-      // We don't request Notifications here to avoid Expo Go SDK 54 crash
-      // Local notifications can be added later if using Development Builds
-      
-      if (mStatus === 'granted') {
-        setIsVisible(false);
-      } else {
-        Alert.alert(
-          "Permissions Required",
-          "CXBulk needs access to your files to import CSV contact lists. Please enable it in settings.",
-          [{ text: "OK", onPress: () => setIsVisible(false) }]
-        );
-      }
+      setIsVisible(false);
     } catch (error) {
-      console.error("Error requesting permissions:", error);
+      console.error("Error:", error);
       setIsVisible(false);
     }
   };
-
-  // If we are in Expo Go, we should be careful with some permissions
-  const isExpoGo = Constants.appOwnership === 'expo';
 
   if (!isVisible) return <>{children}</>;
 
@@ -68,9 +42,9 @@ export function PermissionGuard({ children }: { children: React.ReactNode }) {
               <Ionicons name="shield-checkmark" size={40} color="#007AFF" />
             </View>
             
-            <Text style={styles.title}>Device Permissions</Text>
+            <Text style={styles.title}>Welcome to CXBulk</Text>
             <Text style={styles.subtitle}>
-              To provide a seamless experience, CXBulk requires access to your device for CSV imports and messaging.
+              Import your CSV contact lists and start sending bulk messages to your customers.
             </Text>
 
             <View style={styles.list}>
@@ -86,15 +60,9 @@ export function PermissionGuard({ children }: { children: React.ReactNode }) {
                 <Ionicons name="chatbox-ellipses" size={24} color="#5856D6" />
                 <View style={styles.itemText}>
                   <Text style={styles.itemTitle}>Messaging</Text>
-                  <Text style={styles.itemDesc}>Access to send SMS and WhatsApp messages to your contacts.</Text>
+                  <Text style={styles.itemDesc}>Access to send SMS and WhatsApp messages.</Text>
                 </View>
               </View>
-              
-              {isExpoGo && (
-                <Text style={styles.note}>
-                  Note: Some advanced features like Push Notifications require a Development Build and are disabled in Expo Go.
-                </Text>
-              )}
             </View>
 
             <Pressable 
@@ -104,11 +72,11 @@ export function PermissionGuard({ children }: { children: React.ReactNode }) {
               ]}
               onPress={requestAll}
             >
-              <Text style={styles.btnText}>Allow Access</Text>
+              <Text style={styles.btnText}>Get Started</Text>
             </Pressable>
 
             <Pressable onPress={() => setIsVisible(false)}>
-              <Text style={styles.skipText}>Maybe Later</Text>
+              <Text style={styles.skipText}>Skip for Now</Text>
             </Pressable>
           </View>
         </View>
@@ -181,13 +149,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8E8E93',
     marginTop: 2,
-  },
-  note: {
-    fontSize: 11,
-    color: '#FF9500',
-    textAlign: 'center',
-    marginTop: 8,
-    fontStyle: 'italic',
   },
   btn: {
     backgroundColor: '#007AFF',

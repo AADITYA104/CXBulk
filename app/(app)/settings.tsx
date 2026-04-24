@@ -1,9 +1,10 @@
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/auth";
+import { SkeletonProfileCard, SkeletonSettingsList } from "../../components/skeleton";
 
 export default function SettingsScreen() {
-  const { signOut, user } = useAuth();
+  const { signOut, user, isLoading } = useAuth();
 
   return (
     <View style={{flex: 1, backgroundColor: "#F5F5F7"}}>
@@ -12,21 +13,27 @@ export default function SettingsScreen() {
         <Text style={{fontSize: 32, fontWeight: "800", color: "#1C1C1E", marginBottom: 24}}>Settings</Text>
 
         {/* Profile Card */}
-        <View style={{alignItems: "center", marginBottom: 32}}>
-          <View style={{width: 88, height: 88, borderRadius: 44, backgroundColor: user?.role === "superadmin" ? "#5E5CE6" : "#007AFF", alignItems: "center", justifyContent: "center", marginBottom: 16, shadowColor: user?.role === "superadmin" ? "#5E5CE6" : "#007AFF", shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8}}>
-            <Text style={{fontSize: 32, fontWeight: "bold", color: "#FFFFFF"}}>{user?.role === "superadmin" ? "SA" : "WD"}</Text>
+        {isLoading ? (
+          <SkeletonProfileCard />
+        ) : (
+          <View style={{alignItems: "center", marginBottom: 32}}>
+            <View style={{width: 88, height: 88, borderRadius: 44, backgroundColor: user?.role === "superadmin" ? "#5E5CE6" : "#007AFF", alignItems: "center", justifyContent: "center", marginBottom: 16, shadowColor: user?.role === "superadmin" ? "#5E5CE6" : "#007AFF", shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8}}>
+              <Text style={{fontSize: 32, fontWeight: "bold", color: "#FFFFFF"}}>{user?.role === "superadmin" ? "SA" : "WD"}</Text>
+            </View>
+            <Text style={{fontSize: 22, fontWeight: "bold", color: "#1C1C1E"}}>{user?.role === "superadmin" ? "Super Admin" : "Wholesale Distributor"}</Text>
+            <Text style={{fontSize: 15, color: "#8E8E93", marginTop: 4}}>{user?.email || "admin@cxbulk.com"}</Text>
+            <View style={{flexDirection: "row", alignItems: "center", backgroundColor: "rgba(52,199,89,0.1)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 12}}>
+              <Ionicons name="shield-checkmark" size={14} color="#34C759" style={{marginRight: 4}} />
+              <Text style={{fontSize: 13, fontWeight: "bold", color: "#34C759"}}>Pro Verified</Text>
+            </View>
           </View>
-          <Text style={{fontSize: 22, fontWeight: "bold", color: "#1C1C1E"}}>{user?.role === "superadmin" ? "Super Admin" : "Wholesale Distributor"}</Text>
-          <Text style={{fontSize: 15, color: "#8E8E93", marginTop: 4}}>{user?.email || "admin@cxbulk.com"}</Text>
-          <View style={{flexDirection: "row", alignItems: "center", backgroundColor: "rgba(52,199,89,0.1)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 12}}>
-            <Ionicons name="shield-checkmark" size={14} color="#34C759" style={{marginRight: 4}} />
-            <Text style={{fontSize: 13, fontWeight: "bold", color: "#34C759"}}>Pro Verified</Text>
-          </View>
-        </View>
+        )}
 
         {/* Account Module */}
-        <Text style={{color: "#8E8E93", fontWeight: "600", fontSize: 13, marginBottom: 12, textTransform: "uppercase"}}>Account & Preferences</Text>
-        <View style={{backgroundColor: "#fff", borderRadius: 24, paddingHorizontal: 20, marginBottom: 24, shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2}}>
+        {isLoading ? (
+          <SkeletonSettingsList />
+        ) : (
+          <View style={{backgroundColor: "#fff", borderRadius: 24, paddingHorizontal: 20, marginBottom: 24, shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2}}>
           
           <Pressable style={{flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#F2F2F7", justifyContent: "space-between"}}>
             <View style={{flexDirection: "row", alignItems: "center"}}>
@@ -48,10 +55,25 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
           </Pressable>
         </View>
+        )}
+
+        {/* Account Module Labels */}
+        {!isLoading && (
+          <>
+            <Text style={{color: "#8E8E93", fontWeight: "600", fontSize: 13, marginBottom: 12, textTransform: "uppercase"}}>Account & Preferences</Text>
+          </>
+        )}
 
         {/* System Module */}
-        <Text style={{color: "#8E8E93", fontWeight: "600", fontSize: 13, marginBottom: 12, textTransform: "uppercase"}}>System Configuration</Text>
-        <View style={{backgroundColor: "#fff", borderRadius: 24, paddingHorizontal: 20, marginBottom: 32, shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2}}>
+        {!isLoading && (
+          <>
+            <Text style={{color: "#8E8E93", fontWeight: "600", fontSize: 13, marginBottom: 12, textTransform: "uppercase"}}>System Configuration</Text>
+          </>
+        )}
+        {isLoading ? (
+          <SkeletonSettingsList />
+        ) : (
+          <View style={{backgroundColor: "#fff", borderRadius: 24, paddingHorizontal: 20, marginBottom: 32, shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2}}>
           
           <Pressable style={{flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#F2F2F7", justifyContent: "space-between"}}>
             <View style={{flexDirection: "row", alignItems: "center"}}>
@@ -84,6 +106,7 @@ export default function SettingsScreen() {
           </Pressable>
 
         </View>
+        )}
 
         <Pressable 
           style={{backgroundColor: "#fff", height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2}}

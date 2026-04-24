@@ -6,7 +6,6 @@ import { BlurView } from "expo-blur";
 import { useAuth } from "../../context/auth";
 import { PermissionGuard } from "../../components/permission-guard";
 
-
 const { Navigator } = createMaterialTopTabNavigator();
 const MaterialTopTabs = withLayoutContext<any, typeof Navigator, any, any>(
   Navigator
@@ -15,16 +14,15 @@ const MaterialTopTabs = withLayoutContext<any, typeof Navigator, any, any>(
 function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps) {
   const { user } = useAuth();
 
-  
-  // Filter out 'gateway' if user is not superadmin
-  const visibleRoutes = state.routes.filter(route => {
+  const currentRouteName = state.routes[state.index]?.name;
+
+  const visibleRoutes = state.routes.filter((route) => {
     if (route.name === "gateway" && user?.role !== "superadmin") return false;
     return true;
   });
 
   return (
     <View style={{ position: "absolute", bottom: 24, left: 24, right: 24, zIndex: 100 }}>
-      {/* Container with shadow */}
       <View style={{
         elevation: 8,
         shadowColor: "#000",
@@ -47,23 +45,16 @@ function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps)
           }}
         >
           {visibleRoutes.map((route, index) => {
-            const isFocused = state.index === state.routes.findIndex(r => r.key === route.key);
-
+            const isFocused = route.name === currentRouteName;
 
             const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              });
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
+              navigation.navigate(route.name);
             };
 
-            let iconName: any = "home";
+            let iconName: any;
             if (route.name === "dashboard") iconName = isFocused ? "grid" : "grid-outline";
             if (route.name === "campaign") iconName = isFocused ? "paper-plane" : "paper-plane-outline";
+            if (route.name === "history") iconName = isFocused ? "time" : "time-outline";
             if (route.name === "contacts") iconName = isFocused ? "people" : "people-outline";
             if (route.name === "gateway") iconName = isFocused ? "radio" : "radio-outline";
             if (route.name === "settings") iconName = isFocused ? "settings" : "settings-outline";
@@ -109,6 +100,7 @@ export default function AppLayout() {
       >
         <MaterialTopTabs.Screen name="dashboard" />
         <MaterialTopTabs.Screen name="campaign" />
+        <MaterialTopTabs.Screen name="history" />
         <MaterialTopTabs.Screen name="contacts" />
         {user?.role === "superadmin" && (
           <MaterialTopTabs.Screen name="gateway" />

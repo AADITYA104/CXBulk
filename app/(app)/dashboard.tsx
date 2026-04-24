@@ -3,9 +3,14 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
-import { File as ExpoFile } from "expo-file-system";
+import {
+  readAsStringAsync,
+  copyAsync,
+  cacheDirectory,
+} from "expo-file-system/legacy";
 import Papa from "papaparse";
 import { useContacts } from "../../context/contacts";
+import { SkeletonBarChart, SkeletonStatCard } from "../../components/skeleton";
 
 const chartData = [
   { label: "Mon", value: 380 },
@@ -78,7 +83,7 @@ const chart = StyleSheet.create({
 });
 
 export default function DashboardScreen() {
-  const { contacts, importContacts } = useContacts();
+  const { contacts, importContacts, isLoading } = useContacts();
   const [isImporting, setIsImporting] = useState(false);
 
   const handleImportFile = async () => {
@@ -104,7 +109,7 @@ export default function DashboardScreen() {
         return;
       }
 
-      const { name, uri } = asset;
+      const { name, uri } = pickerAsset;
       
       // 2. Initial validation
       const isCsv = name.toLowerCase().endsWith(".csv") || 
@@ -121,19 +126,21 @@ export default function DashboardScreen() {
 
       setIsImporting(true);
 
-      // 3. Verify file and read content using new SDK 54 API
+      // 3. Read file content using expo-file-system
       let fileContent: string;
       try {
-        const expoFile = new ExpoFile(uri);
-        
-        if (!expoFile.exists) {
-          throw new Error("File not found at picked location.");
+        let fileUri = uri;
+
+        if (fileUri.startsWith("content://")) {
+          const cachedUri = `${cacheDirectory}temp_csv_${Date.now()}.csv`;
+          await copyAsync({ from: uri, to: cachedUri });
+          fileUri = cachedUri;
         }
 
-        // Read as text (new API uses .text() which returns a promise)
-        fileContent = await expoFile.text();
+        fileContent = await readAsStringAsync(fileUri, {
+          encoding: "utf8",
+        });
 
-        // Strip UTF-8 BOM if present
         if (fileContent.startsWith("\uFEFF")) {
           fileContent = fileContent.substring(1);
         }
@@ -230,70 +237,84 @@ export default function DashboardScreen() {
 
         {/* Stat Cards */}
         <View style={styles.cardRow}>
-          <View style={[styles.card, { backgroundColor: "#FFFFFF" }]}>
-            <View style={[styles.cardIconWrap, { backgroundColor: "#E5F2FF" }]}>
-              <Ionicons name="paper-plane" size={18} color="#007AFF" />
-            </View>
-            <Text style={[styles.cardStat, { color: "#1C1C1E" }]}>1.2k</Text>
-            <Text style={[styles.cardLabel, { color: "#8E8E93" }]}>Total Sent</Text>
-            <View style={styles.cardBadge}>
-              <Ionicons name="trending-up" size={10} color="#34C759" />
-              <Text style={styles.cardBadgeText}>+12%</Text>
-            </View>
-          </View>
+          {isLoading ? (
+            <>
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+            </>
+          ) : (
+            <>
+              <View style={[styles.card, { backgroundColor: "#FFFFFF" }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: "#E5F2FF" }]}>
+                  <Ionicons name="paper-plane" size={18} color="#007AFF" />
+                </View>
+                <Text style={[styles.cardStat, { color: "#1C1C1E" }]}>1.2k</Text>
+                <Text style={[styles.cardLabel, { color: "#8E8E93" }]}>Total Sent</Text>
+                <View style={styles.cardBadge}>
+                  <Ionicons name="trending-up" size={10} color="#34C759" />
+                  <Text style={styles.cardBadgeText}>+12%</Text>
+                </View>
+              </View>
 
-          <View style={[styles.card, { backgroundColor: "#1C1C1E" }]}>
-            <View style={[styles.cardIconWrap, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-              <Ionicons name="people" size={18} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.cardStat, { color: "#FFFFFF" }]}>{contacts.length}</Text>
-            <Text style={[styles.cardLabel, { color: "#8E8E93" }]}>Contacts</Text>
-            <View style={[styles.cardBadge, { backgroundColor: "rgba(52,199,89,0.2)" }]}>
-              <Ionicons name="trending-up" size={10} color="#30D158" />
-              <Text style={[styles.cardBadgeText, { color: "#30D158" }]}>Live</Text>
-            </View>
-          </View>
+              <View style={[styles.card, { backgroundColor: "#1C1C1E" }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
+                  <Ionicons name="people" size={18} color="#FFFFFF" />
+                </View>
+                <Text style={[styles.cardStat, { color: "#FFFFFF" }]}>{contacts.length}</Text>
+                <Text style={[styles.cardLabel, { color: "#8E8E93" }]}>Contacts</Text>
+                <View style={[styles.cardBadge, { backgroundColor: "rgba(52,199,89,0.2)" }]}>
+                  <Ionicons name="trending-up" size={10} color="#30D158" />
+                  <Text style={[styles.cardBadgeText, { color: "#30D158" }]}>Live</Text>
+                </View>
+              </View>
 
-          <View style={[styles.card, { backgroundColor: "#007AFF" }]}>
-            <View style={[styles.cardIconWrap, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
-              <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.cardStat, { color: "#FFFFFF", fontSize: 20 }]}>96.4%</Text>
-            <Text style={[styles.cardLabel, { color: "rgba(255,255,255,0.75)" }]}>Delivery</Text>
-            <View style={[styles.cardBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-              <Ionicons name="trending-up" size={10} color="#FFFFFF" />
-              <Text style={[styles.cardBadgeText, { color: "#FFFFFF" }]}>+2%</Text>
-            </View>
-          </View>
+              <View style={[styles.card, { backgroundColor: "#007AFF" }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
+                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                </View>
+                <Text style={[styles.cardStat, { color: "#FFFFFF", fontSize: 20 }]}>96.4%</Text>
+                <Text style={[styles.cardLabel, { color: "rgba(255,255,255,0.75)" }]}>Delivery</Text>
+                <View style={[styles.cardBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
+                  <Ionicons name="trending-up" size={10} color="#FFFFFF" />
+                  <Text style={[styles.cardBadgeText, { color: "#FFFFFF" }]}>+2%</Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Chart Card */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <View>
-              <Text style={styles.chartTitle}>Weekly Messages</Text>
-              <Text style={styles.chartSubtitle}>Apr 9 – Apr 16, 2026</Text>
+        {isLoading ? (
+          <SkeletonBarChart />
+        ) : (
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <View>
+                <Text style={styles.chartTitle}>Weekly Messages</Text>
+                <Text style={styles.chartSubtitle}>Apr 9 – Apr 16, 2026</Text>
+              </View>
+              <View style={styles.chartPill}>
+                <Text style={styles.chartPillText}>This Week</Text>
+              </View>
             </View>
-            <View style={styles.chartPill}>
-              <Text style={styles.chartPillText}>This Week</Text>
+
+            <BarChart />
+
+            <View style={chart.chartFooter}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#007AFF" }]} />
+                <Text style={styles.legendText}>SMS</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#FF6B8A" }]} />
+                <Text style={styles.legendText}>Peak</Text>
+              </View>
+              <View style={{ flex: 1 }} />
+              <Text style={styles.chartTotal}>Total: 3,860</Text>
             </View>
           </View>
-
-          <BarChart />
-
-          <View style={chart.chartFooter}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "#007AFF" }]} />
-              <Text style={styles.legendText}>SMS</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "#FF6B8A" }]} />
-              <Text style={styles.legendText}>Peak</Text>
-            </View>
-            <View style={{ flex: 1 }} />
-            <Text style={styles.chartTotal}>Total: 3,860</Text>
-          </View>
-        </View>
+        )}
 
         {/* Actions */}
         <Text style={styles.sectionTitle}>Actions</Text>
