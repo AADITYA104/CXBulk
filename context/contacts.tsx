@@ -75,9 +75,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     const cleanMobile = mobile.trim();
     if (!cleanName || !cleanMobile) throw new Error("Name and mobile are required");
 
-    // Phone number format validation — must start with + and have 10-15 digits
-    const phoneRegex = /^\+?\d{10,15}$/;
-    const digitsOnly = cleanMobile.replace(/\s+/g, "");
+    // Phone number format validation — accept 10-digit Indian numbers or E.164 (with country code)
+    const digitsOnly = cleanMobile.replace(/\D/g, "");
+    const phoneRegex = /^\d{10,15}$/;
     if (!phoneRegex.test(digitsOnly)) {
       throw new Error("Invalid phone number format");
     }
