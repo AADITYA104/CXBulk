@@ -12,52 +12,41 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as SMS from "expo-sms";
-import * as Linking from "expo-linking";
-import { useContacts, Contact } from "../../context/contacts";
-import { useCampaigns } from "../../context/campaigns";
+import { useRouter } from "expo-router";
+import { useContacts } from "../../context/contacts";
+import { useTemplates, DLTTemplate } from "../../context/templates";
+import { queueProcessor } from "../../lib/queue-processor";
+import { creditTracker } from "../../lib/credit-tracker";
+import { dndManager } from "../../lib/dnd-checker";
+import { auth } from "../../lib/firebase";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Channel = "sms" | "whatsapp" | "both";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function personalise(template: string, contact: Contact): string {
-  return template
-    .replace(/\{Name\}/gi, contact.name)
-    .replace(/\{Crop\}/gi, contact.crop || "")
-    .replace(/\{Mobile\}/gi, contact.mobile);
-}
-
-/** Normalise number to E.164 format for WhatsApp links */
-function toWhatsAppNumber(mobile: string): string {
-  const digits = mobile.replace(/\D/g, "");
-  if (digits.length === 10) return "91" + digits; // assume India
-  return digits;
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CampaignScreen() {
   const { contacts } = useContacts();
-  const { addCampaign } = useCampaigns();
+  const { templates } = useTemplates();
+  const router = useRouter();
 
   // Form state
   const [channel, setChannel] = useState<Channel>("sms");
   const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [dltTemplateId, setDltTemplateId] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<DLTTemplate | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showContactPicker, setShowContactPicker] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
   const [isSending, setIsSending] = useState(false);
 
-  // Character + DLT info
-  const charCount = message.length;
-  const smsPages = Math.ceil(charCount / 160) || 1;
+  // Derived state
+  const charCount = selectedTemplate?.content.length || 0;
+  const isUnicode = selectedTemplate ? /[^\u0000-\u007F]/.test(selectedTemplate.content) : false;
+  const smsPages = selectedTemplate ? Math.ceil(charCount / (isUnicode ? 70 : 160)) : 1;
 
-  // Filtered contacts for picker
   const filteredForPicker = useMemo(() => {
     if (!contactSearch.trim()) return contacts;
     const q = contactSearch.toLowerCase();
@@ -68,10 +57,24 @@ export default function CampaignScreen() {
 
   const selectedContacts = contacts.filter((c) => selectedIds.has(c.id));
 
+  const estimatedCost = useMemo(() => {
+    if (!selectedTemplate || selectedContacts.length === 0) return 0;
+    return creditTracker.estimateCost(
+      selectedContacts.length,
+      channel,
+      selectedTemplate.category,
+      smsPages
+    );
+  }, [selectedContacts.length, channel, selectedTemplate, smsPages]);
+
   const toggleContact = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -80,84 +83,20 @@ export default function CampaignScreen() {
     setSelectedIds(new Set(filteredForPicker.map((c) => c.id)));
   const clearAll = () => setSelectedIds(new Set());
 
-  // ── Personalise preview ──
-  const preview = useMemo(() => {
-    const demo: Contact = {
-      id: "demo",
-      name: "Rajesh Patel",
-      mobile: "9876543210",
-      crop: "Wheat",
-      createdAt: 0,
-    };
-    return personalise(message, demo);
-  }, [message]);
-
-  // ── Send via SMS (expo-sms) ──
-  const sendSMS = async (contacts: Contact[]): Promise<{ sent: number; failed: number }> => {
-    const isAvailable = await SMS.isAvailableAsync();
-    if (!isAvailable) {
-      throw new Error("SMS is not available on this device.");
-    }
-
-    let sent = 0;
-    let failed = 0;
-
-    for (const contact of contacts) {
-      try {
-        const body = personalise(message, contact);
-        const { result } = await SMS.sendSMSAsync([contact.mobile], body);
-        if (result === "sent" || result === "unknown") {
-          sent++;
-        } else {
-          failed++;
-        }
-      } catch {
-        failed++;
-      }
-    }
-    return { sent, failed };
-  };
-
-  // ── Send via WhatsApp (deep link) ──
-  const sendWhatsApp = async (contacts: Contact[]): Promise<{ sent: number; failed: number }> => {
-    let sent = 0;
-    let failed = 0;
-
-    for (const contact of contacts) {
-      try {
-        const body = personalise(message, contact);
-        const num = toWhatsAppNumber(contact.mobile);
-        const url = `whatsapp://send?phone=${num}&text=${encodeURIComponent(body)}`;
-        const canOpen = await Linking.canOpenURL(url);
-        if (!canOpen) {
-          failed++;
-          continue;
-        }
-        await Linking.openURL(url);
-        // Wait a moment between messages to avoid being flagged as spam
-        await new Promise((res) => setTimeout(res, 2000));
-        sent++;
-      } catch {
-        failed++;
-      }
-    }
-    return { sent, failed };
-  };
-
   // ── Main send handler ──
   const handleSend = async () => {
     if (!title.trim()) {
       Alert.alert("Missing Title", "Please give your campaign a name.");
       return;
     }
-    if (!message.trim()) {
-      Alert.alert("Missing Message", "Please type your message.");
+    if (!selectedTemplate) {
+      Alert.alert("No Template", "Please select a DLT-approved template.");
       return;
     }
-    if (channel === "sms" && !dltTemplateId.trim()) {
+    if (selectedTemplate.status !== 'Approved' && (channel === 'sms' || channel === 'both')) {
       Alert.alert(
-        "DLT Template ID Required",
-        "For SMS campaigns, you must provide a TRAI-registered DLT Template ID to comply with regulations."
+        "Template Not Approved",
+        "This template is not yet approved on DLT. SMS campaigns require an approved template."
       );
       return;
     }
@@ -168,52 +107,49 @@ export default function CampaignScreen() {
 
     Alert.alert(
       "Confirm Broadcast",
-      `Send "${title}" to ${selectedContacts.length} contact(s) via ${
-        channel === "both" ? "WhatsApp + SMS" : channel.toUpperCase()
-      }?`,
+      `Send "${title}" to ${selectedContacts.length} contacts?\n\nEst. Cost: ₹${estimatedCost}\nChannel: ${channel.toUpperCase()}`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Send",
+          text: "Start Sending",
           style: "default",
           onPress: async () => {
             setIsSending(true);
             try {
-              let totalSent = 0;
-              let totalFailed = 0;
+              let finalContacts = [...selectedContacts];
 
-              if (channel === "sms" || channel === "both") {
-                const { sent, failed } = await sendSMS(selectedContacts);
-                totalSent += sent;
-                totalFailed += failed;
+              // 1. DND Scrubbing for Promotional
+              if (selectedTemplate.category === 'Promotional') {
+                const nonDndNumbers = await dndManager.scrubNumbers(auth.currentUser?.uid!, finalContacts.map(c => c.mobile));
+                finalContacts = finalContacts.filter(c => nonDndNumbers.includes(c.mobile));
+                
+                if (finalContacts.length < selectedContacts.length) {
+                  const blocked = selectedContacts.length - finalContacts.length;
+                  Alert.alert("DND Scrubbing", `${blocked} contacts were removed because they are in the DND list.`);
+                }
               }
 
-              if (channel === "whatsapp" || channel === "both") {
-                const { sent, failed } = await sendWhatsApp(selectedContacts);
-                totalSent += sent;
-                totalFailed += failed;
+              if (finalContacts.length === 0) {
+                Alert.alert("No Valid Contacts", "All selected contacts were filtered out (DND or Invalid).");
+                setIsSending(false);
+                return;
               }
 
-              // Record campaign in Firestore
-              await addCampaign({
-                title: title.trim(),
-                message: message.trim(),
-                dltTemplateId: dltTemplateId.trim(),
-                channel,
-                totalContacts: selectedContacts.length,
-                sent: totalSent,
-                failed: totalFailed,
-              });
-
-              Alert.alert(
-                "Broadcast Complete",
-                `✅ Sent: ${totalSent}\n❌ Failed: ${totalFailed}\n\nCampaign saved to history.`
+              // 2. Start Queue Processing
+              const campaignId = await queueProcessor.createCampaign(
+                auth.currentUser?.uid!,
+                title.trim(),
+                selectedTemplate,
+                finalContacts,
+                channel
               );
 
+              // 3. Navigate to progress screen
+              router.push({ pathname: "/campaign-progress", params: { campaignId } } as any);
+              
               // Reset form
               setTitle("");
-              setMessage("");
-              setDltTemplateId("");
+              setSelectedTemplate(null);
               setSelectedIds(new Set());
             } catch (e: any) {
               Alert.alert("Send Error", e.message || "An unexpected error occurred.");
@@ -242,7 +178,7 @@ export default function CampaignScreen() {
             <Ionicons name="megaphone-outline" size={18} color="#8E8E93" style={styles.inputIcon} />
             <TextInput
               style={styles.inputField}
-              placeholder="e.g. Wheat Market Update"
+              placeholder="e.g. Festival Greetings 2026"
               placeholderTextColor="#C7C7CC"
               value={title}
               onChangeText={setTitle}
@@ -285,66 +221,54 @@ export default function CampaignScreen() {
           </View>
         </View>
 
-        {/* ── DLT Template ID (only for SMS / both) ── */}
-        {(channel === "sms" || channel === "both") && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>DLT TEMPLATE ID</Text>
-            <View style={styles.inputRow}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#8E8E93" style={styles.inputIcon} />
-              <TextInput
-                style={styles.inputField}
-                placeholder="TRAI Registered Template ID"
-                placeholderTextColor="#C7C7CC"
-                keyboardType="number-pad"
-                value={dltTemplateId}
-                onChangeText={setDltTemplateId}
-              />
-            </View>
-            <Text style={styles.helperText}>
-              Required by TRAI for commercial SMS. Register at sanchar.trai.gov.in
-            </Text>
-          </View>
-        )}
-
-        {/* ── Message Editor ── */}
+        {/* ── Template Selection ── */}
         <View style={styles.section}>
           <View style={styles.sectionLabelRow}>
-            <Text style={styles.sectionLabel}>MESSAGE CONTENT</Text>
-            <Text style={styles.charCount}>
-              {charCount} chars · {smsPages} SMS
-            </Text>
+            <Text style={styles.sectionLabel}>DLT TEMPLATE</Text>
+            <Pressable onPress={() => router.push('/templates' as any)}>
+              <Text style={styles.selectLink}>Manage Templates →</Text>
+            </Pressable>
           </View>
-
-          <View style={styles.messageBox}>
-            <TextInput
-              multiline
-              placeholder="Type your message here... Use {Name}, {Crop} for personalization."
-              placeholderTextColor="#8E8E93"
-              style={styles.messageInput}
-              value={message}
-              onChangeText={setMessage}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Variable chips */}
-          <View style={styles.chipsRow}>
-            {["{Name}", "{Crop}", "{Mobile}"].map((v) => (
-              <Pressable
-                key={v}
-                style={styles.chip}
-                onPress={() => setMessage((m) => m + v)}
-              >
-                <Text style={styles.chipText}>+ {v}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Preview */}
-          {message.trim().length > 0 && (
-            <View style={styles.previewBox}>
-              <Text style={styles.previewLabel}>PREVIEW</Text>
-              <Text style={styles.previewText}>{preview}</Text>
+          
+          <Pressable 
+            style={styles.templateSelector}
+            onPress={() => setShowTemplatePicker(true)}
+          >
+            {selectedTemplate ? (
+              <View style={styles.templateSelected}>
+                <View style={styles.templateHeader}>
+                  <Text style={styles.templateName}>{selectedTemplate.name}</Text>
+                  <View style={styles.categoryPill}>
+                    <Text style={styles.categoryText}>{selectedTemplate.category}</Text>
+                  </View>
+                </View>
+                <Text style={styles.templatePreview} numberOfLines={2}>
+                  {selectedTemplate.content}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.templatePlaceholder}>
+                <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+                <Text style={styles.templatePlaceholderText}>Select an approved template</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-down" size={20} color="#8E8E93" />
+          </Pressable>
+          
+          {selectedTemplate && (
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>CHARS</Text>
+                <Text style={styles.statValue}>{charCount}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>PAGES</Text>
+                <Text style={styles.statValue}>{smsPages} SMS</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>EST. COST</Text>
+                <Text style={[styles.statValue, { color: '#34C759' }]}>₹{estimatedCost}</Text>
+              </View>
             </View>
           )}
         </View>
@@ -366,7 +290,7 @@ export default function CampaignScreen() {
             <View style={styles.recipientPill}>
               <Ionicons name="people" size={16} color="#007AFF" />
               <Text style={styles.recipientPillText}>
-                {selectedIds.size} of {contacts.length} contacts selected
+                {selectedIds.size} contacts selected
               </Text>
               <Pressable onPress={clearAll}>
                 <Ionicons name="close-circle" size={16} color="#8E8E93" />
@@ -403,6 +327,54 @@ export default function CampaignScreen() {
           )}
         </Pressable>
       </ScrollView>
+
+      {/* ── Template Picker Modal ── */}
+      <Modal
+        visible={showTemplatePicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowTemplatePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Template</Text>
+              <Pressable onPress={() => setShowTemplatePicker(false)}>
+                <Text style={styles.modalClose}>Cancel</Text>
+              </Pressable>
+            </View>
+            <ScrollView style={styles.templateList}>
+              {templates.length === 0 ? (
+                <View style={styles.modalEmpty}>
+                  <Text style={styles.modalEmptyText}>No templates found</Text>
+                  <Pressable onPress={() => { setShowTemplatePicker(false); router.push('/template-editor' as any); }}>
+                    <Text style={styles.emptyLink}>Create Template</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                templates.map((t) => (
+                  <Pressable 
+                    key={t.id} 
+                    style={styles.templateItem}
+                    onPress={() => {
+                      setSelectedTemplate(t);
+                      setShowTemplatePicker(false);
+                    }}
+                  >
+                    <View style={styles.templateItemHeader}>
+                      <Text style={styles.templateItemName}>{t.name}</Text>
+                      <View style={[styles.statusTag, { backgroundColor: t.status === 'Approved' ? '#34C75920' : '#8E8E9320' }]}>
+                        <Text style={[styles.statusTagText, { color: t.status === 'Approved' ? '#34C759' : '#8E8E93' }]}>{t.status}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.templateItemContent} numberOfLines={1}>{t.content}</Text>
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Contact Picker Modal ── */}
       <Modal
@@ -463,9 +435,6 @@ export default function CampaignScreen() {
                         <Text style={styles.contactRowName}>{c.name}</Text>
                         <Text style={styles.contactRowPhone}>{c.mobile}</Text>
                       </View>
-                      {c.crop ? (
-                        <Text style={styles.contactRowCrop}>{c.crop}</Text>
-                      ) : null}
                     </Pressable>
                   );
                 })
@@ -525,14 +494,6 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   inputField: { flex: 1, fontSize: 16, color: "#1C1C1E" },
 
-  helperText: {
-    fontSize: 11,
-    color: "#8E8E93",
-    marginTop: 6,
-    marginLeft: 4,
-    lineHeight: 16,
-  },
-
   // Channel selector
   channelRow: { flexDirection: "row", gap: 10 },
   channelBtn: {
@@ -546,44 +507,32 @@ const styles = StyleSheet.create({
   },
   channelLabel: { fontSize: 12, fontWeight: "700", color: "#C7C7CC" },
 
-  // Message
-  charCount: { fontSize: 11, color: "#8E8E93", fontWeight: "600" },
-  messageBox: {
-    backgroundColor: "#FFFFFF",
+  // Template selector
+  templateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
     borderRadius: 16,
     padding: 16,
-    minHeight: 130,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
-    marginBottom: 10,
   },
-  messageInput: { flex: 1, fontSize: 16, color: "#1C1C1E", lineHeight: 24 },
-  chipsRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
-  chip: {
-    backgroundColor: "rgba(0,122,255,0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  chipText: { color: "#007AFF", fontWeight: "600", fontSize: 13 },
-  previewBox: {
-    backgroundColor: "#E8FAF0",
-    borderRadius: 12,
-    padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: "#34C759",
-  },
-  previewLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#34C759",
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  previewText: { fontSize: 14, color: "#1C1C1E", lineHeight: 20 },
+  templatePlaceholder: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  templatePlaceholderText: { color: '#007AFF', fontSize: 15, fontWeight: '600' },
+  templateSelected: { flex: 1 },
+  templateHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  templateName: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
+  templatePreview: { fontSize: 13, color: '#8E8E93' },
+  categoryPill: { backgroundColor: '#F2F2F7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  categoryText: { fontSize: 10, fontWeight: '700', color: '#8E8E93' },
+  
+  statsRow: { flexDirection: 'row', marginTop: 12, gap: 16, backgroundColor: '#FFF', padding: 12, borderRadius: 12 },
+  statItem: { flex: 1 },
+  statLabel: { fontSize: 10, fontWeight: '700', color: '#C7C7CC', marginBottom: 2 },
+  statValue: { fontSize: 13, fontWeight: '700', color: '#1C1C1E' },
 
   // Recipients
   selectLink: { fontSize: 13, color: "#007AFF", fontWeight: "600" },
@@ -630,7 +579,7 @@ const styles = StyleSheet.create({
   },
   sendBtnText: { color: "#FFF", fontSize: 18, fontWeight: "700" },
 
-  // Contact Picker Modal
+  // Modals
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -666,8 +615,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalSearchInput: { flex: 1, fontSize: 15, color: "#1C1C1E" },
-  modalEmpty: { padding: 40, alignItems: "center" },
-  modalEmptyText: { color: "#8E8E93", fontSize: 15 },
+  modalEmpty: { padding: 40, alignItems: 'center' },
+  modalEmptyText: { color: '#8E8E93', fontSize: 15 },
+  emptyLink: { color: '#007AFF', marginTop: 8, fontWeight: '600' },
+  
+  templateList: { padding: 16 },
+  templateItem: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, marginBottom: 12 },
+  templateItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  templateItemName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
+  templateItemContent: { fontSize: 13, color: '#8E8E93' },
+  statusTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  statusTagText: { fontSize: 10, fontWeight: '700' },
+  
   contactRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -689,13 +648,4 @@ const styles = StyleSheet.create({
   },
   contactRowName: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   contactRowPhone: { fontSize: 12, color: "#8E8E93", marginTop: 1 },
-  contactRowCrop: {
-    fontSize: 11,
-    color: "#007AFF",
-    fontWeight: "600",
-    backgroundColor: "#E5F2FF",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
 });

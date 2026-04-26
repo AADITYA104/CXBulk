@@ -3,6 +3,7 @@ import "../global.css";
 import { AuthProvider, useAuth } from "../context/auth";
 import { ContactsProvider } from "../context/contacts";
 import { CampaignsProvider } from "../context/campaigns";
+import { TemplateProvider } from "../context/templates";
 import { useEffect } from "react";
 import { useFonts, Inter_900Black } from "@expo-google-fonts/inter";
 import * as SplashScreenNative from "expo-splash-screen";
@@ -55,9 +56,11 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <CampaignsProvider>
-        <ContactsProvider>
-          <InitialLayout />
-        </ContactsProvider>
+        <TemplateProvider>
+          <ContactsProvider>
+            <InitialLayout />
+          </ContactsProvider>
+        </TemplateProvider>
       </CampaignsProvider>
     </AuthProvider>
   );

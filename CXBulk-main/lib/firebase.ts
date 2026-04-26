@@ -1,5 +1,6 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { Platform } from "react-native";
+// @ts-ignore - TS has issues finding this in Firebase 12+ but Metro bundler resolves it
 import { initializeAuth, getReactNativePersistence, browserLocalPersistence, getAuth } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirestore } from "firebase/firestore";
